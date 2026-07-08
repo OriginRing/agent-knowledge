@@ -1,0 +1,17 @@
+/.DS_Store
+web/.DS_Store
+python/.DS_Store
+/web/node_modules
+/.idea
+web/.idea
+python/.idea
+python/.env
+python/**/__pycache__/
+__pycache__/
+*.py[cod]
+*$py.class
+python/chroma_db
+
+/vscode
+web/.vscode
+web/dist

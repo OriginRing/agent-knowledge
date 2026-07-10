@@ -11,7 +11,8 @@ class HistoryRequest(BaseModel):
     agentCode: Optional[str] = Field(None, description="智能体标识")
 
 class HistoryDetailRequest(BaseModel):
-    id: int = Field(..., description="历史记录ID")
+    id: Optional[int] = Field(None, description="历史记录ID")
+    sessionId: Optional[str] = Field(None, description="会话ID")
 
 @router.post("/register", response_model=ApiResponse, summary="用户注册")
 async def register(request: UserRegisterRequest):
@@ -91,7 +92,7 @@ async def get_history_detail_api(request: HistoryDetailRequest, access_token: st
     if not username:
         return {'code': 1, 'message': '用户不存在'}
     
-    return get_history_detail(username, request.id)
+    return get_history_detail(username, request.id, request.sessionId)
 
 class DeleteHistoryRequest(BaseModel):
     id: int = Field(..., description="历史记录ID")

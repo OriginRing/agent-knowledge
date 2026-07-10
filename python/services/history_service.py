@@ -97,12 +97,17 @@ def get_history_list(username: str, agent_code: str = None):
         if session:
             session.close()
 
-def get_history_detail(username: str, history_id: int):
+def get_history_detail(username: str, history_id: int = None, session_id: str = None):
     session = None
     try:
         session = get_session('agent-user')
         
-        history = session.query(History).filter_by(id=history_id, username=username).first()
+        if history_id:
+            history = session.query(History).filter_by(id=history_id, username=username).first()
+        elif session_id:
+            history = session.query(History).filter_by(session_id=session_id, username=username).first()
+        else:
+            return {'code': 1, 'message': '请提供id或sessionId'}
         
         if not history:
             return {'code': 1, 'message': '会话不存在'}

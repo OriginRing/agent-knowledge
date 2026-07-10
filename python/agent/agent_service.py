@@ -205,7 +205,7 @@ class AgentService:
                 async for chunk in cls._chat_stream_ollama(config, text, actual_thinking, actual_connect, knowledge_items):
                     yield chunk
             elif model_type == 'api':
-                async for chunk in cls._chat_stream_api(config, text, actual_thinking, actual_connect, knowledge_items, processed_files):
+                async for chunk in cls._chat_stream_api(config, text, actual_thinking, actual_connect, processed_files):
                     yield chunk
             
         except Exception as e:
@@ -273,8 +273,7 @@ class AgentService:
         })
 
     @classmethod
-    async def _chat_stream_api(cls, config, text, thinking=False, connect=False, knowledge_items=None, processed_files=None):
-        knowledge_items = knowledge_items or []
+    async def _chat_stream_api(cls, config, text, thinking=False, connect=False, processed_files=None):
         processed_files = processed_files or []
         
         client = cls.get_model(config['agent_code'])
@@ -354,7 +353,6 @@ class AgentService:
                     'agentCode': config['agent_code'],
                     'agentName': config['agent_name'],
                     'thinking': thinking,
-                    'knowledge': knowledge_items,
                     'connect': connect,
                     'done': False
                 })
@@ -374,7 +372,6 @@ class AgentService:
                     'agentCode': config['agent_code'],
                     'agentName': config['agent_name'],
                     'thinking': thinking,
-                    'knowledge': knowledge_items,
                     'connect': connect,
                     'done': False
                 })
@@ -408,7 +405,6 @@ class AgentService:
                     'agentCode': config['agent_code'],
                     'agentName': config['agent_name'],
                     'thinking': thinking,
-                    'knowledge': knowledge_items,
                     'connect': connect,
                     'done': False
                 })

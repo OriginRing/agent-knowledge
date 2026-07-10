@@ -25,16 +25,43 @@
   </a-list>
 
   <a-modal v-model:open="open" title="上传知识库" width="600px" centered>
-    <a-flex align="center" justify="center" style="height: 80px">
-      <a-upload
-        :file-list="fileList"
-        :before-upload="beforeUpload"
-        :show-upload-list="false"
-        @remove="removeUpload"
-      >
-        <a-button> <UploadOutlined /> {{ fileName }} </a-button>
-      </a-upload>
-    </a-flex>
+    <a-tabs v-model:activeKey="activeKey">
+      <a-tab-pane key="1" tab="文件上传">
+        <a-flex align="center" justify="center" style="height: 110px">
+          <a-upload
+              :file-list="fileList"
+              :before-upload="beforeUpload"
+              :show-upload-list="false"
+              @remove="removeUpload"
+          >
+            <a-button> <UploadOutlined /> {{ fileName }} </a-button>
+          </a-upload>
+        </a-flex>
+      </a-tab-pane>
+      <a-tab-pane key="2" tab="URL">
+        <a-form
+            :model="fileForm"
+            :label-col="{ span: 4 }"
+            :wrapper-col="{ span: 16 }"
+        >
+          <a-form-item
+              label="文件名"
+              name="name"
+              :rules="[{ required: true, message: 'Please input file name!' }]"
+          >
+            <a-input v-model:value="fileForm.name" />
+          </a-form-item>
+
+          <a-form-item
+              label="URL"
+              name="url"
+              :rules="[{ required: true, message: 'Please input file url!' }]"
+          >
+            <a-input v-model:value="fileForm.url" />
+          </a-form-item>
+        </a-form>
+      </a-tab-pane>
+    </a-tabs>
 
     <template #footer>
       <a-button key="back" @click="handleCancel">取消</a-button>
@@ -57,7 +84,7 @@ import {
   FormOutlined,
 } from "@ant-design/icons-vue";
 import { message, theme, UploadProps } from "ant-design-vue";
-import { ref } from "vue";
+import {reactive, ref} from "vue";
 import { useChatStore } from "@view/stores/chat";
 import { createChatSession } from "@view/utils/random";
 import { useRouter } from "vue-router";
@@ -67,6 +94,11 @@ const { useToken } = theme;
 const { token } = useToken();
 const router = useRouter();
 const chatService = useChatStore();
+const activeKey = ref("1");
+const fileForm = reactive({
+  name: '',
+  url: ''
+});
 
 const loading = ref<boolean>(false);
 const open = ref<boolean>(false);
@@ -87,7 +119,6 @@ const removeUpload: UploadProps["onRemove"] = (file) => {
 };
 
 const handleUpload = async () => {
-  loading.value = true;
   const formData = new FormData();
   if (fileList.value && fileList.value.length > 0) {
     const file = fileList.value[0].originFileObj || fileList.value[0];
@@ -97,39 +128,55 @@ const handleUpload = async () => {
     const res = await httpClient.post("/file/upload", formData);
     if (res.code === 0) {
       if (res.data.url) {
-        const knowRes = await httpClient.post("/file/knowledge/upload", {
-          url: res.data.url,
-          fileName: res.data.filename,
-        });
-        if (knowRes.code === 0) {
-          message.success("已上传到知识库!");
-          fileList.value = [];
-          fileName.value = "";
-          loading.value = false;
-          console.log(knowRes.data);
-          handleCancel();
-        } else {
-          message.error("未正常上传到知识库!");
-          loading.value = false;
-        }
+        await uploadKnowledge(res.data.filename, res.data.url);
+      } else {
+        message.error("未获取上传文件地址!");
+        loading.value = false;
       }
     } else {
-      message.error("未正常上传到知识库!");
+      message.error("文件上传失败!");
       loading.value = false;
     }
   } catch {
-    message.error("未正常上传到知识库!");
+    message.error("文件上传失败!");
     loading.value = false;
   }
 };
 
+const uploadKnowledge = async (filename: string, url: string) => {
+  const knowRes = await httpClient.post("/file/knowledge/upload", {
+    url: url,
+    fileName: filename,
+  });
+  if (knowRes.code === 0) {
+    message.success("已上传到知识库!");
+    fileList.value = [];
+    fileName.value = "";
+    fileForm.url = "";
+    fileName.value = "";
+    loading.value = false;
+    console.log(knowRes.data);
+    handleCancel();
+  } else {
+    message.error("未正常上传到知识库!");
+    loading.value = false;
+  }
+}
+
 const handleOk = async () => {
-  await handleUpload();
+  loading.value = true;
+  if (activeKey.value === "1") {
+    await handleUpload();
+  } else {
+    await uploadKnowledge(fileForm.name, fileForm.url);
+  }
 };
 
 const handleCancel = () => {
   open.value = false;
   fileList.value = [];
+  fileName.value = "";
+  fileForm.url = "";
   fileName.value = "";
 };
 

@@ -134,7 +134,7 @@ class AgentService:
         return {}
 
     @classmethod
-    async def chat_stream(cls, agent_code, text, files=None, thinking=False, knowledge=False, connect=False):
+    async def chat_stream(cls, agent_code, text, files=None, thinking=False, knowledge=False, connect=False, session_id=None, username=None):
         if isinstance(files, str):
             files = [f.strip() for f in files.split(',') if f.strip()]
         else:
@@ -175,6 +175,15 @@ class AgentService:
             
             model_type = config['model_type']
             
+            history_messages = []
+            if session_id and username:
+                from agent.history_manager import HistoryManager
+                history_messages = await asyncio.to_thread(
+                    HistoryManager.get_history_messages,
+                    username,
+                    session_id,
+                    max_tokens=int(os.getenv('MAX_TOKENS', 4096))
+                )
             if actual_file:
                 yield json.dumps({
                     'content': '',
@@ -202,10 +211,10 @@ class AgentService:
                     )
             
             if model_type == 'ollama':
-                async for chunk in cls._chat_stream_ollama(config, text, actual_thinking, actual_connect, knowledge_items):
+                async for chunk in cls._chat_stream_ollama(config, text, actual_thinking, actual_connect, knowledge_items, history_messages):
                     yield chunk
             elif model_type == 'api':
-                async for chunk in cls._chat_stream_api(config, text, actual_thinking, actual_connect, processed_files):
+                async for chunk in cls._chat_stream_api(config, text, actual_thinking, actual_connect, processed_files, history_messages):
                     yield chunk
             
         except StopAsyncIteration:
@@ -224,8 +233,9 @@ class AgentService:
         return FileProcessService.process_files_for_api(file_urls)
 
     @classmethod
-    async def _chat_stream_ollama(cls, config, text, thinking=False, connect=False, knowledge_items=None):
+    async def _chat_stream_ollama(cls, config, text, thinking=False, connect=False, knowledge_items=None, history_messages=None):
         knowledge_items = knowledge_items or []
+        history_messages = history_messages or []
         
         if connect:
             yield json.dumps({
@@ -246,7 +256,7 @@ class AgentService:
         
         model = cls.get_model(config['agent_code'], reasoning=thinking)
         
-        messages = [{'role': 'user', 'content': text}]
+        messages = history_messages + [{'role': 'user', 'content': text}]
         
         async for chunk in model.astream(messages):
             content = chunk.content or ""
@@ -275,8 +285,9 @@ class AgentService:
         })
 
     @classmethod
-    async def _chat_stream_api(cls, config, text, thinking=False, connect=False, processed_files=None):
+    async def _chat_stream_api(cls, config, text, thinking=False, connect=False, processed_files=None, history_messages=None):
         processed_files = processed_files or []
+        history_messages = history_messages or []
         
         client = cls.get_model(config['agent_code'])
         
@@ -285,7 +296,7 @@ class AgentService:
         if connect:
             system_prompt = "你具备联网搜索能力。当用户询问需要最新信息的问题（如天气、新闻、实时数据等）时，请调用 web_search 工具获取最新信息，然后基于搜索结果进行回答。"
         
-        messages = []
+        messages = history_messages + []
         if system_prompt:
             messages.append({'role': 'system', 'content': system_prompt})
         

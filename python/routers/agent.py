@@ -26,13 +26,15 @@ async def chat_generator(request: ChatRequest, username: str):
     full_think_message = ""
     knowledge_data = []
     async for chunk in AgentService.chat_stream(
-        agent_code=request.agentCode,
-        text=request.text,
-        files=request.files,
-        thinking=request.thinking,
-        knowledge=request.knowledge,
-        connect=request.connect
-    ):
+            agent_code=request.agentCode,
+            text=request.text,
+            files=request.files,
+            thinking=request.thinking,
+            knowledge=request.knowledge,
+            connect=request.connect,
+            session_id=request.sessionId,
+            username=username
+        ):
         yield f"data: {chunk}\n\n"
         
         import json

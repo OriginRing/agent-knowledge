@@ -57,9 +57,12 @@ const handleOk = async () => {
   });
   if (res.code === 0) {
     open.value = false;
-    await router.push("/");
+    loading.value = false;
+    // await router.push({path: "/", force: true});
+    window.location.href = "/";
   } else {
-    message.error(res.data.message);
+    message.error(res.message);
+    loading.value = false;
   }
   loading.value = false;
 };

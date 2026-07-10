@@ -86,12 +86,14 @@ const mergeDocs = (docs: KnowledgeDoc[]): KnowledgeDoc[] => {
 };
 
 const previewFile = async (name: string, url: string) => {
+  const hide = message.loading("正在获取文件资源")
   try {
     const response = await fetch(url);
     if (!response.ok) {
       message.error(`文件资源获取失败`);
     }
     const blob = await response.blob();
+    hide()
     file.value = new File([blob], name, { type: blob.type });
   } catch (error) {
     console.error("转换文件失败:", error);

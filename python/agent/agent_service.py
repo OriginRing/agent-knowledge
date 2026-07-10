@@ -117,7 +117,10 @@ class AgentService:
     @classmethod
     def _get_thinking_kwargs(cls, base_url, model_name, thinking):
         if not thinking:
-            return {}
+            if 'dashscope' in base_url:
+                return {"extra_body": {"enable_thinking": False}}
+            else:
+                return {}
         
         if 'dashscope' in base_url:
             return {"extra_body": {"enable_thinking": True}}

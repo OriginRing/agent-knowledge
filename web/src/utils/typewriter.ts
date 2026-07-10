@@ -14,7 +14,7 @@ const md = new MarkdownIt({
  * @returns {string} - HTML 字符串
  */
 export function renderMarkdown(content: string): string {
-  if (!content) return "";
+  if (!content) return "对话失败，暂无内容";
   const text = content.replace(/\\n/g, "\n");
   return md.render(text);
 }

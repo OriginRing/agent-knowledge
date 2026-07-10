@@ -304,6 +304,8 @@ const sendMessage = async (
         }
       }
     }
+    answer.value[answer.value.length - 1].thinking = false;
+    answer.value[answer.value.length - 1].loading = false;
     answer.value[answer.value.length - 1].complete = true;
   } catch (err) {
     console.error("流式请求失败：", err);

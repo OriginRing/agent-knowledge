@@ -208,8 +208,10 @@ class AgentService:
                 async for chunk in cls._chat_stream_api(config, text, actual_thinking, actual_connect, processed_files):
                     yield chunk
             
+        except StopAsyncIteration:
+            pass
         except Exception as e:
-            yield json.dumps({'error': f'对话失败: {str(e)}'})
+            yield json.dumps({'error': f'对话失败: {str(e)}', 'done': True})
 
     @classmethod
     def _process_files_for_ollama(cls, file_urls):
@@ -327,6 +329,8 @@ class AgentService:
             **thinking_kwargs
         )
         async for chunk in stream:
+            if not chunk.choices:
+                continue
             delta = chunk.choices[0].delta
             
             if delta.tool_calls:

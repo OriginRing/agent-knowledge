@@ -21,6 +21,11 @@ const router = createRouter({
       name: "Knowledge",
       component: () => import("@view/views/knowledge/index.vue"),
     },
+    {
+      path: "/memory",
+      name: "Memory",
+      component: () => import("@view/views/memory/index.vue"),
+    },
   ],
 });
 

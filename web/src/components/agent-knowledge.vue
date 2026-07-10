@@ -22,17 +22,23 @@
         知识库检索
       </router-link>
     </a-list-item>
+    <a-list-item key="4">
+      <router-link class="memory" to="/memory">
+        <SearchOutlined />
+        个人记忆
+      </router-link>
+    </a-list-item>
   </a-list>
 
   <a-modal v-model:open="open" title="上传知识库" width="600px" centered>
-    <a-tabs v-model:activeKey="activeKey">
+    <a-tabs v-model:active-key="activeKey">
       <a-tab-pane key="1" tab="文件上传">
         <a-flex align="center" justify="center" style="height: 110px">
           <a-upload
-              :file-list="fileList"
-              :before-upload="beforeUpload"
-              :show-upload-list="false"
-              @remove="removeUpload"
+            :file-list="fileList"
+            :before-upload="beforeUpload"
+            :show-upload-list="false"
+            @remove="removeUpload"
           >
             <a-button> <UploadOutlined /> {{ fileName }} </a-button>
           </a-upload>
@@ -40,22 +46,22 @@
       </a-tab-pane>
       <a-tab-pane key="2" tab="URL">
         <a-form
-            :model="fileForm"
-            :label-col="{ span: 4 }"
-            :wrapper-col="{ span: 16 }"
+          :model="fileForm"
+          :label-col="{ span: 4 }"
+          :wrapper-col="{ span: 16 }"
         >
           <a-form-item
-              label="文件名"
-              name="name"
-              :rules="[{ required: true, message: 'Please input file name!' }]"
+            label="文件名"
+            name="name"
+            :rules="[{ required: true, message: 'Please input file name!' }]"
           >
             <a-input v-model:value="fileForm.name" />
           </a-form-item>
 
           <a-form-item
-              label="URL"
-              name="url"
-              :rules="[{ required: true, message: 'Please input file url!' }]"
+            label="URL"
+            name="url"
+            :rules="[{ required: true, message: 'Please input file url!' }]"
           >
             <a-input v-model:value="fileForm.url" />
           </a-form-item>
@@ -84,7 +90,7 @@ import {
   FormOutlined,
 } from "@ant-design/icons-vue";
 import { message, theme, UploadProps } from "ant-design-vue";
-import {reactive, ref} from "vue";
+import { reactive, ref } from "vue";
 import { useChatStore } from "@view/stores/chat";
 import { createChatSession } from "@view/utils/random";
 import { useRouter } from "vue-router";
@@ -96,8 +102,8 @@ const router = useRouter();
 const chatService = useChatStore();
 const activeKey = ref("1");
 const fileForm = reactive({
-  name: '',
-  url: ''
+  name: "",
+  url: "",
 });
 
 const loading = ref<boolean>(false);
@@ -161,7 +167,7 @@ const uploadKnowledge = async (filename: string, url: string) => {
     message.error("未正常上传到知识库!");
     loading.value = false;
   }
-}
+};
 
 const handleOk = async () => {
   loading.value = true;
@@ -215,7 +221,8 @@ const newConversation = () => {
     margin-right: 4px;
   }
 
-  .knowledge {
+  .knowledge,
+  .memory {
     cursor: pointer;
     color: inherit;
   }

@@ -12,6 +12,7 @@
     "format": "prettier --write \"src/**/*.{ts,vue}\""
   },
   "dependencies": {
+    "@antv/gpt-vis": "^1.0.0",
     "@open-file-viewer/core": "^0.1.17",
     "@open-file-viewer/vue": "^0.1.17",
     "ant-design-vue": "^4.2.6",

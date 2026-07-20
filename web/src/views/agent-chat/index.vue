@@ -308,6 +308,9 @@ const sendMessage = async (
     answer.value[answer.value.length - 1].loading = false;
     answer.value[answer.value.length - 1].complete = true;
   } catch (err) {
+    answer.value[answer.value.length - 1].thinking = false;
+    answer.value[answer.value.length - 1].loading = false;
+    answer.value[answer.value.length - 1].complete = true;
     console.error("流式请求失败：", err);
   }
 };
@@ -434,5 +437,13 @@ onMounted(() => {
 .chat-content {
   padding: 12px 16px;
   height: 100%;
+}
+
+.markdown-body {
+  :deep(thead) {
+    th {
+      white-space: nowrap;
+    }
+  }
 }
 </style>

@@ -157,7 +157,7 @@ class AgentService:
             if actual_knowledge:
                 yield json.dumps({
                     'content': '',
-                    'thinkMessage': '[正在检索知识库...]<br>',
+                    'thinkMessage': '正在检索知识库...<br>',
                     'agentCode': config['agent_code'],
                     'agentName': config['agent_name'],
                     'thinking': actual_thinking,
@@ -240,7 +240,7 @@ class AgentService:
         if connect:
             yield json.dumps({
                 'content': '',
-                'thinkMessage': '[正在搜索...]<br>',
+                'thinkMessage': '正在搜索...<br>',
                 'agentCode': config['agent_code'],
                 'agentName': config['agent_name'],
                 'thinking': thinking,
@@ -252,11 +252,11 @@ class AgentService:
             search_result = await asyncio.to_thread(web_search, text)
             
             if search_result and '搜索错误' not in search_result and '搜索失败' not in search_result:
-                text = f"【搜索参考信息】\n{search_result}\n\n请基于以上搜索信息回答用户问题：{text}"
+                result = [{'role': 'system', 'content': search_result}]
         
         model = cls.get_model(config['agent_code'], reasoning=thinking)
         
-        messages = history_messages + [{'role': 'user', 'content': text}]
+        messages = history_messages + result + [{'role': 'user', 'content': text}]
         
         async for chunk in model.astream(messages):
             content = chunk.content or ""

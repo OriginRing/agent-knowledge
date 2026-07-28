@@ -40,17 +40,7 @@
     <a-flex v-if="isHistoryPage" align="center" vertical>
       <h3>管理对话</h3>
     </a-flex>
-
-    <a-flex align="center" gap="middle">
-      <a-switch v-model:checked="themeSwitch" @change="changeTheme">
-        <template #checkedChildren>
-          <Iconfont type="icon-sunyardsun" />
-        </template>
-        <template #unCheckedChildren>
-          <Iconfont type="icon-sunyarddark" />
-        </template>
-      </a-switch>
-    </a-flex>
+    <div />
   </div>
 </template>
 <script setup lang="ts">
@@ -61,30 +51,22 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
 } from "@ant-design/icons-vue";
-import Iconfont from "@view/components/iconfont.vue";
 import { useChatStore } from "@view/stores/chat";
-import { useThemeStore } from "@view/stores/theme";
 import { AgentChat, AgentDetail } from "@view/interfaces/agent-interface";
 import { createChatSession } from "@view/utils/random";
 import httpClient from "@view/services/http";
 
 const chatService = useChatStore();
-const themeService = useThemeStore();
 const router = useRouter();
 const route = useRoute();
 
 const listAgent = ref<AgentDetail[]>([]);
 const agentMode = ref("");
-const themeSwitch = ref(true);
 const historyView = ref(true);
 const history = ref<AgentChat[]>([]);
 
 const isChatPage = computed(() => route.name === "Chat");
 const isHistoryPage = computed(() => route.name === "History");
-
-const changeTheme = () => {
-  themeService.setToggleDark(!themeSwitch.value);
-};
 
 const historyHandle = (visible: boolean) => {
   historyView.value = visible;
@@ -129,7 +111,6 @@ watchEffect(() => {
 
 onMounted(() => {
   getAgentList();
-  themeSwitch.value = !themeService.getToggleDark;
 });
 </script>
 <style scoped lang="less">

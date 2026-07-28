@@ -1,29 +1,62 @@
 <template>
   <div class="agent-user">
-    <button
-      class="agent-use-info"
-      type="button"
-      :disabled="!chatService.getTokenStatus"
-      aria-label="查看用户资料"
-      @click="openProfile"
-    >
-      <a-avatar :size="36" :src="user.avatar || undefined">
-        <template #icon><UserOutlined /></template>
-      </a-avatar>
-      <div v-if="chatService.getTokenStatus" class="user-name">
-        {{ user.nickname || user.username }}
-      </div>
-      <div v-else class="user-name">未登录</div>
-    </button>
-    <a-button
-      v-if="chatService.getTokenStatus"
-      type="default"
-      shape="round"
-      size="small"
-      @click.stop="remove"
-    >
-      退出
-    </a-button>
+    <a-dropdown placement="topLeft" trigger="click">
+      <template #overlay>
+        <a-menu>
+          <a-menu-item @click="openProfile">
+            <p>
+              <a-avatar :size="18" :src="user.avatar || undefined">
+                <template #icon><UserOutlined /></template>
+              </a-avatar>
+              个人信息
+            </p>
+          </a-menu-item>
+          <a-menu-item>
+            <a-flex align="center" justify="space-between">
+              <span>
+                <SkinOutlined />
+                主题
+              </span>
+              <a-flex align="center" gap="middle">
+                <a-switch
+                  v-model:checked="themeSwitch"
+                  size="small"
+                  @change="changeTheme"
+                >
+                  <template #checkedChildren>
+                    <Iconfont type="icon-sunyardsun" />
+                  </template>
+                  <template #unCheckedChildren>
+                    <Iconfont type="icon-sunyarddark" />
+                  </template>
+                </a-switch>
+              </a-flex>
+            </a-flex>
+          </a-menu-item>
+          <a-menu-item @click.stop="remove">
+            <p>
+              <LogoutOutlined />
+              退出登录
+            </p>
+          </a-menu-item>
+        </a-menu>
+      </template>
+      <button
+        class="agent-use-info"
+        type="button"
+        :disabled="!chatService.getTokenStatus"
+        aria-label="查看用户资料"
+      >
+        <a-avatar :size="36" :src="user.avatar || undefined">
+          <template #icon><UserOutlined /></template>
+        </a-avatar>
+        <div v-if="chatService.getTokenStatus" class="user-name">
+          {{ user.nickname || user.username }}
+        </div>
+        <div v-else class="user-name">未登录</div>
+        <SettingOutlined />
+      </button>
+    </a-dropdown>
   </div>
 
   <a-modal
@@ -157,21 +190,31 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watchEffect } from "vue";
-import { UploadOutlined, UserOutlined } from "@ant-design/icons-vue";
+import { onMounted, reactive, ref, watchEffect } from "vue";
+import {
+  UploadOutlined,
+  UserOutlined,
+  SettingOutlined,
+  SkinOutlined,
+  LogoutOutlined,
+} from "@ant-design/icons-vue";
 import { message, type FormInstance } from "ant-design-vue";
 import { clearChatStore, useChatStore } from "@view/stores/chat";
 import httpClient from "@view/services/http";
 import type { UserInterface } from "@view/interfaces/user-interface";
 import { validatePasswordChange } from "@view/utils/profile";
+import Iconfont from "@view/components/iconfont.vue";
+import { useThemeStore } from "@view/stores/theme";
 
 const chatService = useChatStore();
+const themeService = useThemeStore();
 const user = ref<Partial<UserInterface>>({});
 const profileOpen = ref(false);
 const editing = ref(false);
 const saving = ref(false);
 const avatarUploading = ref(false);
 const profileFormRef = ref<FormInstance>();
+const themeSwitch = ref(true);
 
 const form = reactive({
   avatar: "",
@@ -183,6 +226,10 @@ const form = reactive({
   newPassword: "",
   confirmPassword: "",
 });
+
+const changeTheme = () => {
+  themeService.setToggleDark(!themeSwitch.value);
+};
 
 const validatePassword = async () => {
   const error = validatePasswordChange(form);
@@ -292,6 +339,10 @@ const remove = async () => {
 watchEffect(() => {
   user.value = chatService.getUserDetail;
 });
+
+onMounted(() => {
+  themeSwitch.value = !themeService.getToggleDark;
+});
 </script>
 
 <style scoped lang="less">
@@ -306,7 +357,7 @@ watchEffect(() => {
   flex: 1;
   min-width: 0;
   min-height: 44px;
-  padding: 4px;
+  padding: 4px 8px;
   border: 0;
   display: flex;
   align-items: center;
@@ -317,14 +368,6 @@ watchEffect(() => {
   border-radius: 8px;
   cursor: pointer;
 
-  &:hover,
-  &:focus-visible {
-    background: rgba(127, 127, 127, 0.12);
-    outline: none;
-  }
-  &:focus-visible {
-    box-shadow: 0 0 0 2px var(--ant-color-primary, #1677ff);
-  }
   &:disabled {
     cursor: default;
   }

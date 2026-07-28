@@ -8,6 +8,7 @@ class UserRegisterRequest(BaseModel):
     nickname: Optional[str] = Field(None, description="昵称")
     gender: Optional[int] = Field(None, description="性别：0-女，1-男")
     age: Optional[int] = Field(None, description="年龄")
+    memory: Optional[bool] = Field(False, description="记忆开关")
 
     @field_validator('username')
     def username_must_be_digits(cls, v):
@@ -32,6 +33,7 @@ class UserResponse(BaseModel):
     nickname: Optional[str]
     gender: Optional[int]
     age: Optional[int]
+    memory: Optional[bool]
     created_at: str
 
     class Config:

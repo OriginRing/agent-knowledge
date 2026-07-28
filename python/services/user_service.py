@@ -53,7 +53,8 @@ def get_user_by_id(user_id: int):
             'nickname': user.nickname,
             'gender': user.gender,
             'age': user.age,
-            'created_at': str(user.created_at)
+            'created_at': str(user.created_at),
+            'memory': user.memory
         }
     except Exception as e:
         return None
@@ -78,7 +79,8 @@ def register_user(request: UserRegisterRequest):
             avatar=request.avatar,
             nickname=request.nickname,
             gender=request.gender,
-            age=request.age
+            age=request.age,
+            memory=request.memory
         )
         
         session.add(new_user)
@@ -92,6 +94,7 @@ def register_user(request: UserRegisterRequest):
             nickname=new_user.nickname,
             gender=new_user.gender,
             age=new_user.age,
+            memory=new_user.memory,
             created_at=str(new_user.created_at)
         )
         
@@ -115,10 +118,11 @@ def login_user(username: str, userpassword: str):
         user_response = UserResponse(
             id=user.id,
             username=user.username,
-            avatar=user.avatar,
-            nickname=user.nickname,
-            gender=user.gender,
-            age=user.age,
+            avatar=user.avatar if user.avatar else None,
+            nickname=user.nickname if user.nickname else None,
+            gender=user.gender if user.gender else None,
+            age=user.age if user.age else None,
+            memory=user.memory if user.memory else False,
             created_at=str(user.created_at)
         )
         

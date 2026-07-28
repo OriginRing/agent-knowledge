@@ -13,6 +13,7 @@ class User(Base):
     nickname = Column(String(100), nullable=True, comment='昵称')
     gender = Column(Integer, nullable=True, comment='性别：0-女，1-男')
     age = Column(Integer, nullable=True, comment='年龄')
+    memory = Column(Boolean, default=False, comment='记忆开关')
     created_at = Column(TIMESTAMP, server_default=func.now(), comment='创建时间')
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), comment='更新时间')
 

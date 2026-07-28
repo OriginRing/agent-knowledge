@@ -1,46 +1,299 @@
 <template>
   <div class="agent-user">
-    <div class="agent-use-info">
-      <a-avatar :size="36">
+    <button
+      class="agent-use-info"
+      type="button"
+      :disabled="!chatService.getTokenStatus"
+      aria-label="查看用户资料"
+      @click="openProfile"
+    >
+      <a-avatar :size="36" :src="user.avatar || undefined">
         <template #icon><UserOutlined /></template>
       </a-avatar>
       <div v-if="chatService.getTokenStatus" class="user-name">
         {{ user.nickname || user.username }}
       </div>
       <div v-else class="user-name">未登录</div>
-    </div>
+    </button>
     <a-button
       v-if="chatService.getTokenStatus"
       type="default"
       shape="round"
       size="small"
-      @click="remove"
-      >退出</a-button
+      @click.stop="remove"
     >
+      退出
+    </a-button>
   </div>
+
+  <a-modal
+    v-model:open="profileOpen"
+    width="560px"
+    :title="editing ? '编辑用户资料' : '用户资料'"
+    :mask-closable="!saving"
+    destroy-on-close
+  >
+    <a-descriptions v-if="!editing" :column="1" bordered size="small">
+      <a-descriptions-item label="头像">
+        <a-avatar :size="52" :src="user.avatar || undefined">
+          <template #icon><UserOutlined /></template>
+        </a-avatar>
+      </a-descriptions-item>
+      <a-descriptions-item label="用户名">{{
+        user.username
+      }}</a-descriptions-item>
+      <a-descriptions-item label="昵称">{{
+        user.nickname || "未设置"
+      }}</a-descriptions-item>
+      <a-descriptions-item label="性别">{{
+        genderLabel(user.gender)
+      }}</a-descriptions-item>
+      <a-descriptions-item label="年龄">{{
+        user.age ?? "未设置"
+      }}</a-descriptions-item>
+      <a-descriptions-item label="长期记忆">
+        <a-tag :color="user.memory ? 'success' : 'default'">
+          {{ user.memory ? "已开启" : "未开启" }}
+        </a-tag>
+      </a-descriptions-item>
+      <a-descriptions-item label="注册时间">{{
+        user.created_at
+      }}</a-descriptions-item>
+    </a-descriptions>
+
+    <a-form
+      v-else
+      ref="profileFormRef"
+      :model="form"
+      :rules="profileRules"
+      layout="vertical"
+    >
+      <a-form-item label="头像">
+        <a-flex align="center" gap="16">
+          <a-avatar :size="64" :src="form.avatar || undefined">
+            <template #icon><UserOutlined /></template>
+          </a-avatar>
+          <a-upload
+            accept="image/png,image/jpeg,image/gif,image/webp"
+            :show-upload-list="false"
+            :before-upload="uploadAvatar"
+          >
+            <a-button :loading="avatarUploading">
+              <UploadOutlined />
+              上传头像
+            </a-button>
+          </a-upload>
+        </a-flex>
+      </a-form-item>
+      <a-form-item label="用户名">
+        <a-input :value="user.username" disabled />
+      </a-form-item>
+      <a-form-item label="昵称" name="nickname">
+        <a-input v-model:value="form.nickname" :maxlength="100" />
+      </a-form-item>
+      <a-flex gap="16">
+        <a-form-item label="性别" name="gender" class="half-field">
+          <a-select
+            v-model:value="form.gender"
+            allow-clear
+            placeholder="请选择"
+          >
+            <a-select-option :value="0">女</a-select-option>
+            <a-select-option :value="1">男</a-select-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="年龄" name="age" class="half-field">
+          <a-input-number
+            v-model:value="form.age"
+            :min="0"
+            :max="150"
+            style="width: 100%"
+          />
+        </a-form-item>
+      </a-flex>
+      <a-form-item label="长期记忆">
+        <a-switch v-model:checked="form.memory" />
+        <a-typography-text type="secondary" class="memory-help">
+          开启后，聊天会检索并写入与当前用户相关的长期记忆。
+        </a-typography-text>
+      </a-form-item>
+
+      <a-divider orientation="left">修改密码（可选）</a-divider>
+      <a-form-item label="当前密码" name="currentPassword">
+        <a-input-password
+          v-model:value="form.currentPassword"
+          autocomplete="current-password"
+        />
+      </a-form-item>
+      <a-form-item label="新密码" name="newPassword">
+        <a-input-password
+          v-model:value="form.newPassword"
+          autocomplete="new-password"
+        />
+      </a-form-item>
+      <a-form-item label="确认新密码" name="confirmPassword">
+        <a-input-password
+          v-model:value="form.confirmPassword"
+          autocomplete="new-password"
+        />
+      </a-form-item>
+    </a-form>
+
+    <template #footer>
+      <a-flex justify="end" gap="8">
+        <a-button @click="profileOpen = false">关闭</a-button>
+        <a-button v-if="!editing" type="primary" @click="beginEdit"
+          >编辑</a-button
+        >
+        <template v-else>
+          <a-button @click="editing = false">取消编辑</a-button>
+          <a-button type="primary" :loading="saving" @click="saveProfile">
+            保存
+          </a-button>
+        </template>
+      </a-flex>
+    </template>
+  </a-modal>
 </template>
+
 <script setup lang="ts">
-import { UserOutlined } from "@ant-design/icons-vue";
+import { reactive, ref, watchEffect } from "vue";
+import { UploadOutlined, UserOutlined } from "@ant-design/icons-vue";
+import { message, type FormInstance } from "ant-design-vue";
 import { clearChatStore, useChatStore } from "@view/stores/chat";
-import { ref, watchEffect } from "vue";
 import httpClient from "@view/services/http";
 import type { UserInterface } from "@view/interfaces/user-interface";
+import { validatePasswordChange } from "@view/utils/profile";
 
 const chatService = useChatStore();
-
 const user = ref<Partial<UserInterface>>({});
+const profileOpen = ref(false);
+const editing = ref(false);
+const saving = ref(false);
+const avatarUploading = ref(false);
+const profileFormRef = ref<FormInstance>();
+
+const form = reactive({
+  avatar: "",
+  nickname: "",
+  gender: undefined as number | undefined,
+  age: undefined as number | undefined,
+  memory: false,
+  currentPassword: "",
+  newPassword: "",
+  confirmPassword: "",
+});
+
+const validatePassword = async () => {
+  const error = validatePasswordChange(form);
+  if (error) throw new Error(error);
+};
+
+const profileRules = {
+  nickname: [{ max: 100, message: "昵称不能超过 100 个字符", trigger: "blur" }],
+  age: [
+    {
+      type: "number",
+      min: 0,
+      max: 150,
+      message: "年龄需在 0 到 150 之间",
+      trigger: "blur",
+    },
+  ],
+};
+
+const genderLabel = (gender?: number | null) =>
+  gender === 0 ? "女" : gender === 1 ? "男" : "未设置";
+
+const resetForm = () => {
+  form.avatar = user.value.avatar ?? "";
+  form.nickname = user.value.nickname ?? "";
+  form.gender = user.value.gender ?? undefined;
+  form.age = user.value.age ?? undefined;
+  form.memory = Boolean(user.value.memory);
+  form.currentPassword = "";
+  form.newPassword = "";
+  form.confirmPassword = "";
+};
+
+const openProfile = () => {
+  if (!chatService.getTokenStatus) return;
+  editing.value = false;
+  resetForm();
+  profileOpen.value = true;
+};
+
+const beginEdit = () => {
+  resetForm();
+  editing.value = true;
+};
+
+const uploadAvatar = async (file: File) => {
+  if (file.size / 1024 / 1024 >= 5) {
+    message.error("头像图片不能超过 5MB");
+    return false;
+  }
+  avatarUploading.value = true;
+  const data = new FormData();
+  data.append("file", file);
+  try {
+    const result = await httpClient.post("/file/upload", data);
+    if (result.code !== 0) throw new Error(result.message);
+    form.avatar = result.data.url;
+    message.success("头像上传成功");
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : "头像上传失败");
+  } finally {
+    avatarUploading.value = false;
+  }
+  return false;
+};
+
+const saveProfile = async () => {
+  try {
+    await profileFormRef.value?.validate();
+    await validatePassword();
+    saving.value = true;
+    const profileResult = await httpClient.patch<UserInterface>(
+      "/auth/userinfo",
+      {
+        avatar: form.avatar || null,
+        nickname: form.nickname || null,
+        gender: form.gender ?? null,
+        age: form.age ?? null,
+        memory: form.memory,
+      },
+    );
+    if (profileResult.code !== 0) throw new Error(profileResult.message);
+    chatService.setUserDetail(profileResult.data);
+    if (form.currentPassword || form.newPassword || form.confirmPassword) {
+      const passwordResult = await httpClient.put("/auth/password", {
+        currentPassword: form.currentPassword,
+        newPassword: form.newPassword,
+      });
+      if (passwordResult.code !== 0) throw new Error(passwordResult.message);
+    }
+    user.value = profileResult.data;
+    editing.value = false;
+    resetForm();
+    message.success("用户资料已更新");
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : "用户资料保存失败");
+  } finally {
+    saving.value = false;
+  }
+};
 
 const remove = async () => {
   const res = await httpClient.get("/auth/logout");
-  if (res.code === 0) {
-    clearChatStore();
-  }
+  if (res.code === 0) clearChatStore();
 };
 
 watchEffect(() => {
   user.value = chatService.getUserDetail;
 });
 </script>
+
 <style scoped lang="less">
 .agent-user {
   height: 100%;
@@ -50,21 +303,50 @@ watchEffect(() => {
   gap: 8px;
 }
 .agent-use-info {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 4px;
+  border: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   overflow: hidden;
+  color: inherit;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
 
-  .ant-avatar {
-    flex: 0 0 36px;
+  &:hover,
+  &:focus-visible {
+    background: rgba(127, 127, 127, 0.12);
+    outline: none;
   }
-
-  .user-name {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--ant-color-primary, #1677ff);
+  }
+  &:disabled {
+    cursor: default;
+  }
+}
+.user-name {
+  flex: 1;
+  display: flex;
+  justify-content: flex-start;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.half-field {
+  flex: 1;
+}
+.memory-help {
+  margin-left: 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
   }
 }
 </style>

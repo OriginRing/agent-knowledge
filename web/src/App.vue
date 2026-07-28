@@ -2,15 +2,18 @@
 import AgentHeader from "@view/components/agent-header.vue";
 import AgentTool from "@view/views/agent-tool/index.vue";
 import Login from "@view/views/login/index.vue";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { theme } from "ant-design-vue";
 import { useThemeStore } from "@view/stores/theme";
 import { useChatStore } from "@view/stores/chat";
 import Split from "@view/components/split.vue";
 import KnowledgeFile from "@view/views/knowledge-file/index.vue";
+import { createChatSession } from "@view/utils/random";
+import { useRouter } from "vue-router";
 
 const { useToken } = theme;
 const { token } = useToken();
+const router = useRouter();
 
 const themeStore = useThemeStore();
 const chatService = useChatStore();
@@ -42,7 +45,29 @@ const applyTheme = (dark: boolean) => {
   document.documentElement.classList.toggle("dark", dark);
 };
 
-onMounted(() => applyTheme(themeStore.isDark));
+const handleShortcut = (event: KeyboardEvent) => {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    if (router.currentRoute.value.path !== "/") {
+      router.push("/");
+    }
+    chatService.setAgentHistoryDetail([]);
+    chatService.setNewConversation(createChatSession());
+  }
+};
+
+onMounted(() => {
+  applyTheme(themeStore.isDark);
+  window.addEventListener("keydown", handleShortcut);
+  if (window.innerWidth <= 768) {
+    chatService.setAgentTool(false);
+    historyView.value = false;
+  }
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", handleShortcut);
+});
 
 watch(() => themeStore.isDark, applyTheme);
 </script>
@@ -96,6 +121,29 @@ watch(() => themeStore.isDark, applyTheme);
   .ant-layout-sider {
     background-color: transparent;
     height: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .ant-layout {
+    .left-wrapper {
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 100;
+      width: min(280px, 82vw);
+      background: v-bind("token.colorBgContainer");
+      box-shadow: 8px 0 24px rgba(0, 0, 0, 0.14);
+
+      &.left-collapsed {
+        width: 0;
+        box-shadow: none;
+      }
+    }
+
+    .ant-layout-sider {
+      width: min(280px, 82vw) !important;
+      max-width: min(280px, 82vw) !important;
+    }
   }
 }
 </style>

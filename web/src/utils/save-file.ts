@@ -1,23 +1,26 @@
-import { asBlob } from 'html-docx-js-typescript'
-import { saveAs } from 'file-saver'
+import { asBlob } from "html-docx-js-typescript";
+import { saveAs } from "file-saver";
 
-export async function saveDocx(elementId: string, fileName = Date.now().toString()) {
-  const element = document.getElementById(elementId)
-  if (!element) return
+export async function saveDocx(
+  elementId: string,
+  fileName = Date.now().toString(),
+) {
+  const element = document.getElementById(elementId);
+  if (!element) return;
 
   // ✅ A4 内容区 标准安全宽度（固定这个值）
-  const A4_MAX_WIDTH = 620
+  const A4_MAX_WIDTH = 620;
 
-  element.querySelectorAll('img').forEach((img) => {
+  element.querySelectorAll("img").forEach((img) => {
     // 强制图片最大宽度 = A4 宽度，并且等比缩放
-    img.style.maxWidth = `${A4_MAX_WIDTH}px`
-    img.style.width = '100%'
-    img.style.height = 'auto'
+    img.style.maxWidth = `${A4_MAX_WIDTH}px`;
+    img.style.width = "100%";
+    img.style.height = "auto";
 
     // 同时兼容旧版渲染
-    img.setAttribute('width', A4_MAX_WIDTH.toString())
-    img.removeAttribute('height')
-  })
+    img.setAttribute("width", A4_MAX_WIDTH.toString());
+    img.removeAttribute("height");
+  });
 
   const customCss = `
         body { font-family: '微软雅黑', sans-serif; font-size: 14px; color: #333; }
@@ -32,17 +35,17 @@ export async function saveDocx(elementId: string, fileName = Date.now().toString
           padding: 0 !important;
           vertical-align: middle !important;
         }
-    `
+    `;
 
   const fullHtml = `
         <!DOCTYPE html>
         <html>
             <head><meta charset="UTF-8"><style>${customCss}</style></head>
             <body>${element.innerHTML}</body>
-        </html>`
+        </html>`;
 
   const options = {
-    orientation: 'portrait',
+    orientation: "portrait",
     margins: {
       top: 1440,
       right: 1440,
@@ -50,16 +53,16 @@ export async function saveDocx(elementId: string, fileName = Date.now().toString
       left: 1440,
     },
     font: {
-      name: '微软雅黑',
+      name: "微软雅黑",
       size: 28,
     },
-  }
+  };
 
   try {
-    // @ts-ignore
-    const blob: Blob = (await asBlob(fullHtml, options)) as unknown as Blob
-    saveAs(blob, fileName)
+    // @ts-expect-error html-docx-js-typescript 的类型定义缺少可用的默认导出签名
+    const blob: Blob = (await asBlob(fullHtml, options)) as unknown as Blob;
+    saveAs(blob, fileName);
   } catch (err) {
-    console.error('导出Word失败:', err)
+    console.error("导出Word失败:", err);
   }
 }

@@ -6,8 +6,8 @@
   </Welcome>
 </template>
 <script setup lang="tsx">
-import { Welcome } from 'ant-design-x-vue'
-import { CommentOutlined } from '@ant-design/icons-vue'
+import { Welcome } from "ant-design-x-vue";
+import { CommentOutlined } from "@ant-design/icons-vue";
 </script>
 <style lang="less" scoped>
 .ant-welcome {

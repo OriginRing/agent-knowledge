@@ -38,9 +38,11 @@ router.beforeEach(async (_to, _from, next: NavigationGuardNext) => {
       next();
     } else {
       useChatStore().setTokenStatus(false);
+      next();
     }
   } catch {
     useChatStore().setTokenStatus(false);
+    next();
   }
 });
 

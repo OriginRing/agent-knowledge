@@ -1,8 +1,21 @@
 from fastapi import APIRouter, Response, Cookie
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict
-from models.user import UserRegisterRequest, UserLoginRequest, ApiResponse
-from services.user_service import register_user, login_user, decode_token, get_user_by_id
+from models.user import (
+    UserRegisterRequest,
+    UserLoginRequest,
+    UserUpdateRequest,
+    UserPasswordUpdateRequest,
+    ApiResponse,
+)
+from services.user_service import (
+    register_user,
+    login_user,
+    decode_token,
+    get_user_by_id,
+    update_user,
+    update_user_password,
+)
 from services.history_service import get_history_list, get_history_detail, delete_history_record
 from services.memory_service import add_memory, search_memory, list_memories, delete_memory, update_memory
 
@@ -64,6 +77,31 @@ async def get_userinfo(access_token: str = Cookie(None)):
         'message': 'success',
         'data': user
     }
+
+@router.patch("/userinfo", response_model=ApiResponse, summary="修改用户信息")
+async def patch_userinfo(request: UserUpdateRequest, access_token: str = Cookie(None)):
+    if not access_token:
+        return {'code': 1, 'message': '未登录'}
+    payload = decode_token(access_token)
+    if not payload:
+        return {'code': 1, 'message': 'token无效'}
+    return update_user(payload.get('id'), request)
+
+@router.put("/password", response_model=ApiResponse, summary="修改用户密码")
+async def put_password(
+    request: UserPasswordUpdateRequest,
+    access_token: str = Cookie(None),
+):
+    if not access_token:
+        return {'code': 1, 'message': '未登录'}
+    payload = decode_token(access_token)
+    if not payload:
+        return {'code': 1, 'message': 'token无效'}
+    return update_user_password(
+        payload.get('id'),
+        request.currentPassword,
+        request.newPassword,
+    )
 
 @router.post("/history", response_model=ApiResponse, summary="获取历史记录列表")
 async def get_history(request: HistoryRequest, access_token: str = Cookie(None)):

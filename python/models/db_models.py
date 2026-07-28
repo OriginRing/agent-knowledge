@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Boolean
+from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.sql import func
 from db.sqlalchemy_connection import Base
 
@@ -47,6 +48,6 @@ class History(Base):
     session_id = Column(String(50), nullable=False, comment='会话ID')
     username = Column(String(50), nullable=False, comment='用户名')
     agent_code = Column(String(6), nullable=True, comment='智能体标识')
-    records = Column(Text, nullable=False, comment='对话记录数组（JSON格式）')
+    records = Column(LONGTEXT, nullable=False, comment='版本化完整对话记录（JSON格式）')
     created_at = Column(TIMESTAMP, server_default=func.now(), comment='创建时间')
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), comment='更新时间')

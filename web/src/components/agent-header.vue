@@ -167,4 +167,20 @@ onMounted(() => {
     }
   }
 }
+
+@media (max-width: 768px) {
+  .agent-header {
+    .log {
+      display: none;
+    }
+
+    .menu {
+      position: static;
+    }
+
+    .chat-title {
+      display: none;
+    }
+  }
+}
 </style>

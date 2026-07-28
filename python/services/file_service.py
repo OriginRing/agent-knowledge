@@ -25,16 +25,16 @@ class FileService:
         return cls._bucket
 
     @classmethod
-    def upload_file(cls, file_bytes, filename):
+    def upload_file(cls, file_bytes, filename, object_prefix="uploads"):
         try:
             bucket = cls.get_bucket()
             
             ext = os.path.splitext(filename)[1]
             new_filename = f"{uuid.uuid4().hex}{ext}"
-            object_key = f"uploads/{new_filename}"
+            object_key = f"{object_prefix.strip('/')}/{new_filename}"
             
             bucket.put_object(object_key, file_bytes)
-            
+
             url = f"https://{os.getenv('OSS_BUCKET_NAME')}.{os.getenv('OSS_ENDPOINT')}/{object_key}"
             return {'code': 0, 'message': 'success', 'data': {'url': url, 'filename': filename}}
         

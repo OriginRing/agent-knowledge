@@ -3,7 +3,7 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from db.sqlalchemy_connection import get_session
 from models.db_models import User
-from models.user import UserRegisterRequest, UserResponse
+from models.user import UserRegisterRequest, UserResponse, UserUpdateRequest
 
 SECRET_KEY = "your-secret-key-keep-it-safe-in-production"
 ALGORITHM = "HS256"
@@ -118,11 +118,11 @@ def login_user(username: str, userpassword: str):
         user_response = UserResponse(
             id=user.id,
             username=user.username,
-            avatar=user.avatar if user.avatar else None,
-            nickname=user.nickname if user.nickname else None,
-            gender=user.gender if user.gender else None,
-            age=user.age if user.age else None,
-            memory=user.memory if user.memory else False,
+            avatar=user.avatar,
+            nickname=user.nickname,
+            gender=user.gender,
+            age=user.age,
+            memory=bool(user.memory),
             created_at=str(user.created_at)
         )
         
@@ -143,6 +143,48 @@ def login_user(username: str, userpassword: str):
         }
     except Exception as e:
         return {'code': -1, 'message': f'登录失败: {str(e)}'}
+    finally:
+        if session:
+            session.close()
+
+def update_user(user_id: int, request: UserUpdateRequest):
+    session = None
+    try:
+        session = get_session('agent-user')
+        user = session.query(User).filter_by(id=user_id).first()
+        if not user:
+            return {'code': 1, 'message': '用户不存在'}
+        updates = request.model_dump(exclude_unset=True)
+        for field, value in updates.items():
+            setattr(user, field, value)
+        session.commit()
+        return {'code': 0, 'message': '用户信息修改成功', 'data': get_user_by_id(user_id)}
+    except Exception as exc:
+        if session:
+            session.rollback()
+        return {'code': -1, 'message': f'用户信息修改失败: {exc}'}
+    finally:
+        if session:
+            session.close()
+
+def update_user_password(user_id: int, current_password: str, new_password: str):
+    session = None
+    try:
+        session = get_session('agent-user')
+        user = session.query(User).filter_by(id=user_id).first()
+        if not user:
+            return {'code': 1, 'message': '用户不存在'}
+        if not verify_password(current_password, user.userpassword):
+            return {'code': 1, 'message': '当前密码错误'}
+        if verify_password(new_password, user.userpassword):
+            return {'code': 1, 'message': '新密码不能与当前密码相同'}
+        user.userpassword = hash_password(new_password)
+        session.commit()
+        return {'code': 0, 'message': '密码修改成功'}
+    except Exception as exc:
+        if session:
+            session.rollback()
+        return {'code': -1, 'message': f'密码修改失败: {exc}'}
     finally:
         if session:
             session.close()

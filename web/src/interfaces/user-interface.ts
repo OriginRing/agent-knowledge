@@ -1,9 +1,10 @@
 export interface UserInterface {
-  age: string;
-  avatar: string;
+  age: number | null;
+  avatar: string | null;
   created_at: string;
-  gender: string;
+  gender: number | null;
   id: number;
-  nickname: string;
+  nickname: string | null;
   username: string;
+  memory: boolean;
 }

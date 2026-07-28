@@ -4,6 +4,11 @@
     :style="{
       '--color-text-tertiary': token.colorTextTertiary,
       '--color-bg': token.colorFillQuaternary,
+      '--color-border-secondary': token.colorBorderSecondary,
+      '--color-error': token.colorError,
+      '--color-primary': token.colorPrimary,
+      '--color-success': token.colorSuccess,
+      '--color-warning': token.colorWarning,
     }"
   >
     <div class="agent-content">
@@ -42,28 +47,12 @@
               </a-flex>
             </a-flex>
 
-            <ACollapse
-              v-if="
-                item.role === 'assistant' &&
-                chatService.getAgentDetail?.supportThink &&
-                item.thinkMessage
-              "
-              :bordered="false"
-              accordion
-            >
-              <a-collapse-panel>
-                <template #header>
-                  <template v-if="item.thinking">
-                    <SyncOutlined spin />
-                    思考中···
-                  </template>
-                  <template v-else> 深度思考 </template>
-                </template>
-                <a-typography>
-                  <div v-html="renderMarkdown(item.thinkMessage)"></div>
-                </a-typography>
-              </a-collapse-panel>
-            </ACollapse>
+            <ChatThoughtChain
+              v-if="item.role === 'assistant'"
+              :nodes="item.nodes"
+              :active="item.status === 'running' && item.complete === false"
+              :message-status="item.status"
+            />
           </template>
           <template #message="{ item }">
             <p v-if="item.role !== 'assistant'" class="chat-content">
@@ -131,17 +120,26 @@ import {
   FileTextOutlined,
 } from "@ant-design/icons-vue";
 import ChatInput from "@view/components/chat-input.vue";
+import ChatThoughtChain from "@view/components/chat-thought-chain.vue";
 import { useChatStore } from "@view/stores/chat";
 import { renderMarkdown } from "@view/utils/typewriter";
 import { createChatSession } from "@view/utils/random";
 import { saveDocx } from "@view/utils/save-file";
 import { copyToClipboard } from "@view/utils/copy";
-import { AgentChat, KnowledgeDoc } from "@view/interfaces/agent-interface";
+import type {
+  AgentChat,
+  ChatArtifact,
+  ChatNode,
+  KnowledgeDoc,
+} from "@view/interfaces/agent-interface";
 import {
   getFileExtUpper,
   isImageFile,
   splitUrlToFileArr,
 } from "@view/utils/file";
+import { createSseParser, upsertChatNode } from "@view/utils/sse";
+import { rehydrateHistoryMessages } from "@view/utils/chat-state";
+import { mergeReasoningIntoModelNode } from "@view/utils/thought-chain";
 
 const { useToken } = theme;
 const { token } = useToken();
@@ -198,7 +196,13 @@ const previewFile = (item: AgentChat) => {
 const regenerateChat = (item: AgentChat) => {
   const lastUserChat = answer.value.findLast((v) => v.role === "user");
   const input: string = lastUserChat?.content || "";
-  sendMessage(input, item.files, item.thinking, item?.knowledgeSkill);
+  sendMessage(
+    input,
+    lastUserChat?.files,
+    item.thinking,
+    item?.knowledgeSkill,
+    item?.connectSkill,
+  );
 };
 
 const stopMessage = () => {
@@ -208,6 +212,7 @@ const stopMessage = () => {
   answer.value[answer.value.length - 1].content =
     answer.value[answer.value.length - 1].content ?? "请求中断";
   answer.value[answer.value.length - 1].complete = true;
+  answer.value[answer.value.length - 1].status = "cancelled";
 };
 
 const sendMessage = async (
@@ -237,6 +242,9 @@ const sendMessage = async (
     collapse: (now + 2).toString(),
     complete: false,
     signal: new AbortController(),
+    nodes: [],
+    artifacts: [],
+    status: "running",
   });
   await nextTick();
   try {
@@ -253,6 +261,10 @@ const sendMessage = async (
         agentCode: chatService.getAgentDetail.agentCode,
         text: input ? input : "帮我分析下文件内容",
         files: fileList,
+        skills: [
+          ...(internet ? ["web-search"] : []),
+          ...(knowledge ? ["knowledge-search"] : []),
+        ],
       }),
       signal: answer.value[answer.value.length - 1]?.signal?.signal,
     });
@@ -261,6 +273,8 @@ const sendMessage = async (
     const reader = response.body?.getReader();
     if (!reader) return;
     const decoder = new TextDecoder();
+    const parser = createSseParser();
+    const assistantKey = (now + 2).toString();
     await nextTick();
 
     // 3. 循环读取流
@@ -269,48 +283,71 @@ const sendMessage = async (
       if (done) break;
 
       const chunk = decoder.decode(value, { stream: true });
+      const events = parser.push(chunk) as Array<{
+        event?: string;
+        content?: string;
+        thinkMessage?: string;
+        knowledge?: KnowledgeDoc[];
+        artifacts?: ChatArtifact[];
+        node?: ChatNode;
+        error?: string;
+        done?: boolean;
+        message?: AgentChat;
+        sessionId?: string;
+      }>;
 
-      const messages = chunk.split("\n\n").filter(Boolean);
-
-      for (const message of messages) {
-        if (message.startsWith("data: ")) {
-          const rawData = message.substring(6);
-
-          if (rawData === "[DONE]") continue;
-
-          try {
-            const parsed = JSON.parse(rawData);
-            console.log(parsed);
-            if (parsed.done) {
-              continue;
-            }
-            if (parsed?.thinking && parsed?.thinkMessage) {
-              answer.value[answer.value.length - 1].thinkMessage +=
-                parsed.thinkMessage;
-            }
-            if (parsed?.knowledge) {
-              answer.value[answer.value.length - 1].knowledge =
-                parsed.knowledge;
-            }
-            if (parsed.content) {
-              answer.value[answer.value.length - 1].thinking = false;
-              answer.value[answer.value.length - 1].collapse = "";
-              answer.value[answer.value.length - 1].loading = false;
-              answer.value[answer.value.length - 1].content += parsed.content;
-            }
-          } catch (err) {
-            console.warn("Failed to parse SSE message:", rawData, err);
-          }
+      for (const parsed of events) {
+        const assistant = answer.value.find(
+          (item) => item.key === assistantKey,
+        );
+        if (!assistant) continue;
+        if (parsed.node) {
+          assistant.nodes = upsertChatNode(assistant.nodes ?? [], parsed.node);
+        }
+        if (parsed.thinkMessage) {
+          assistant.thinkMessage =
+            (assistant.thinkMessage ?? "") + parsed.thinkMessage;
+          assistant.nodes = mergeReasoningIntoModelNode(
+            assistant.nodes ?? [],
+            assistant.thinkMessage,
+          );
+        }
+        if (parsed.knowledge?.length) assistant.knowledge = parsed.knowledge;
+        if (parsed.artifacts?.length) assistant.artifacts = parsed.artifacts;
+        if (parsed.content) {
+          assistant.thinking = false;
+          assistant.collapse = "";
+          assistant.loading = false;
+          assistant.content += parsed.content;
+        }
+        if (parsed.error) {
+          assistant.error = parsed.error;
+          assistant.status = "error";
+          assistant.loading = false;
+          assistant.thinking = false;
+        }
+        if (parsed.done && parsed.message) {
+          assistant.nodes = parsed.message.nodes ?? assistant.nodes;
+          assistant.artifacts = parsed.message.artifacts ?? assistant.artifacts;
+          assistant.knowledge = parsed.message.knowledge ?? assistant.knowledge;
+          assistant.status = parsed.message.status ?? "complete";
+          assistant.complete = true;
+          if (parsed.sessionId) sessionId.value = parsed.sessionId;
         }
       }
     }
     answer.value[answer.value.length - 1].thinking = false;
     answer.value[answer.value.length - 1].loading = false;
     answer.value[answer.value.length - 1].complete = true;
+    answer.value[answer.value.length - 1].status =
+      answer.value[answer.value.length - 1].status === "error"
+        ? "error"
+        : "complete";
   } catch (err) {
     answer.value[answer.value.length - 1].thinking = false;
     answer.value[answer.value.length - 1].loading = false;
     answer.value[answer.value.length - 1].complete = true;
+    answer.value[answer.value.length - 1].status = "error";
     console.error("流式请求失败：", err);
   }
 };
@@ -329,7 +366,7 @@ watch(
 
 watchEffect(() => {
   if (chatService.getAgentHistoryDetail.length) {
-    answer.value = chatService.getAgentHistoryDetail as unknown as AgentChat[];
+    answer.value = rehydrateHistoryMessages(chatService.getAgentHistoryDetail);
   }
 });
 
@@ -443,6 +480,16 @@ onMounted(() => {
   :deep(thead) {
     th {
       white-space: nowrap;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .agent-chat {
+    padding: 0 12px 12px;
+
+    .agent-input {
+      flex-basis: 170px;
     }
   }
 }

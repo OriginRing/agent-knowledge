@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, Any
 
 class UserRegisterRequest(BaseModel):
@@ -25,6 +25,21 @@ class UserLoginRequest(BaseModel):
         if not v.isdigit():
             raise ValueError('用户名必须为纯数字')
         return v
+
+class UserUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    avatar: Optional[str] = Field(None, max_length=500, description="头像URL")
+    nickname: Optional[str] = Field(None, max_length=100, description="昵称")
+    gender: Optional[int] = Field(None, ge=0, le=1, description="性别：0-女，1-男")
+    age: Optional[int] = Field(None, ge=0, le=150, description="年龄")
+    memory: Optional[bool] = Field(None, description="记忆开关")
+
+class UserPasswordUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    currentPassword: str = Field(..., description="当前密码")
+    newPassword: str = Field(..., min_length=6, description="新密码")
 
 class UserResponse(BaseModel):
     id: int

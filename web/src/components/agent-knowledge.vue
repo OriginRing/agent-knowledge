@@ -5,8 +5,13 @@
     }"
   >
     <a-list-item key="1" @click="newConversation">
-      <FormOutlined />
-      新对话
+      <a-flex gap="large">
+        <span>
+          <FormOutlined />
+          新对话
+        </span>
+        <kbd>⌘ K</kbd>
+      </a-flex>
     </a-list-item>
     <a-list-item key="1" @click="() => (open = true)">
       <UploadOutlined />

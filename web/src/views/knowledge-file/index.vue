@@ -21,11 +21,13 @@
           </template>
           <div class="card-content">
             <template
-              v-for="(val, index) in item.fileContent || []"
+              v-for="(val, index) in normalizeContent(item.fileContent)"
               :key="index"
             >
               <p>{{ val }}</p>
-              <a-divider v-if="index !== item.fileContent.length - 1" />
+              <a-divider
+                v-if="index !== normalizeContent(item.fileContent).length - 1"
+              />
             </template>
           </div>
         </a-card>
@@ -67,8 +69,11 @@ const mergeDocs = (docs: KnowledgeDoc[]): KnowledgeDoc[] => {
 
   docs.forEach((doc) => {
     if (map.has(doc.fileId)) {
-      // 如果已存在该 fileId，将内容 push 到数组中
-      map.get(doc.fileId)!.fileContent.push(doc.fileContent);
+      const existing = map.get(doc.fileId)!;
+      existing.fileContent = [
+        ...normalizeContent(existing.fileContent),
+        ...normalizeContent(doc.fileContent),
+      ];
     } else {
       // 如果是首次出现，初始化数组并放入 Map
       map.set(doc.fileId, {
@@ -85,15 +90,18 @@ const mergeDocs = (docs: KnowledgeDoc[]): KnowledgeDoc[] => {
   return Array.from(map.values());
 };
 
+const normalizeContent = (content: string | string[] = []): string[] =>
+  Array.isArray(content) ? content : [content];
+
 const previewFile = async (name: string, url: string) => {
-  const hide = message.loading("正在获取文件资源")
+  const hide = message.loading("正在获取文件资源");
   try {
     const response = await fetch(url);
     if (!response.ok) {
       message.error(`文件资源获取失败`);
     }
     const blob = await response.blob();
-    hide()
+    hide();
     file.value = new File([blob], name, { type: blob.type });
   } catch (error) {
     console.error("转换文件失败:", error);

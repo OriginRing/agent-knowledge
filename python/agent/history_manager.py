@@ -13,6 +13,10 @@ class HistoryManager:
             return []
         
         records = history_result['data']['records']
+        if records and records[-1].get('status') == 'running':
+            records = records[:-1]
+            if records and records[-1].get('role') == 'user':
+                records = records[:-1]
         
         messages = []
         for record in records:

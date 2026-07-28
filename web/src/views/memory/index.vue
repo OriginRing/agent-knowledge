@@ -1,7 +1,7 @@
 <template>
   <a-flex class="memory-page" vertical>
     <a-flex justify="space-between">
-      <a-button type="primary" @click="openMemory(null)">新增记忆</a-button>
+      <a-button type="primary" @click="openMemory()">新增记忆</a-button>
       <a-flex justify="flex-end" gap="small">
         <a-input-search
           v-model:value="value"

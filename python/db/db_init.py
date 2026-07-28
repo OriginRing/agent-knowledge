@@ -1,10 +1,33 @@
+from sqlalchemy import text
 from db.sqlalchemy_connection import create_tables, get_session
 from models.db_models import AgentList
 
 def init_tables():
     create_tables('agent-user')
     create_tables('agent-knowledge')
+    ensure_history_longtext()
     init_default_agents()
+
+def ensure_history_longtext():
+    session = None
+    try:
+        session = get_session('agent-user')
+        column_type = session.execute(text(
+            "SELECT DATA_TYPE FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'history' "
+            "AND COLUMN_NAME = 'records'"
+        )).scalar()
+        if column_type and column_type.lower() != 'longtext':
+            session.execute(text("ALTER TABLE history MODIFY records LONGTEXT NOT NULL"))
+            session.commit()
+            print("history.records 已升级为 LONGTEXT")
+    except Exception as exc:
+        if session:
+            session.rollback()
+        print(f"history.records 升级检查失败: {exc}")
+    finally:
+        if session:
+            session.close()
 
 def init_default_agents():
     try:

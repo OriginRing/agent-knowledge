@@ -11,7 +11,7 @@
           />
         </a-form-item>
         <a-form-item label="密码" required>
-          <a-input
+          <a-input-password
             v-model:value="formState.password"
             placeholder="Enter your password"
           />
@@ -45,7 +45,7 @@
           />
         </a-form-item>
         <a-form-item label="密码" required>
-          <a-input
+          <a-input-password
             v-model:value="formRegister.password"
             placeholder="Enter your password"
           />
@@ -96,9 +96,6 @@ import { reactive, ref, watchEffect } from "vue";
 import { message } from "ant-design-vue";
 import httpClient from "@view/services/http";
 import { useChatStore } from "@view/stores/chat";
-import { useRouter } from "vue-router";
-
-const router = useRouter();
 const open = ref(false);
 const loading = ref(false);
 const chatService = useChatStore();
@@ -124,7 +121,6 @@ const checkType = (val: boolean) => {
   loginCard.value = val;
   formRegister.username = "";
   formRegister.password = "";
-  formRegister.dbPassword = "";
   formState.username = "";
   formState.password = "";
 };

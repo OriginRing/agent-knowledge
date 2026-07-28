@@ -9,7 +9,7 @@
   >
     <Sender
       v-model:value="chatInput"
-      placeholder="Press Enter to send message"
+      placeholder="请输入..."
       :auto-size="{ minRows: 1, maxRows: 3 }"
       :actions="false"
       @keydown="handleEnter"

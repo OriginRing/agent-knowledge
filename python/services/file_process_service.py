@@ -1,7 +1,8 @@
 import os
 import io
 import requests
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any
+from urllib.parse import unquote, urlparse
 
 class FileProcessService:
     @classmethod
@@ -29,6 +30,16 @@ class FileProcessService:
                 if row_text.strip():
                     text_parts.append(row_text)
         return "\n".join(text_parts)
+
+    @classmethod
+    def extract_text_from_pdf(cls, content: bytes) -> str:
+        from pypdf import PdfReader
+
+        reader = PdfReader(io.BytesIO(content))
+        return "\n".join(
+            page.extract_text() or ""
+            for page in reader.pages
+        ).strip()
 
     @classmethod
     def extract_text_from_ofd(cls, content: bytes) -> str:
@@ -73,6 +84,7 @@ class FileProcessService:
         extractors = {
             '.docx': cls.extract_text_from_docx,
             '.xlsx': cls.extract_text_from_xlsx,
+            '.pdf': cls.extract_text_from_pdf,
             '.ofd': cls.extract_text_from_ofd,
             '.html': cls.extract_text_from_html,
             '.htm': cls.extract_text_from_html,
@@ -85,21 +97,17 @@ class FileProcessService:
         
         if ext in extractors:
             return extractors[ext](content)
-        else:
+        if not ext or ext in {'.txt', '.log', '.csv'}:
             return cls.extract_text_from_txt(content)
+        raise ValueError(f"暂不支持解析该文件类型: {ext or '未知'}")
 
     @classmethod
     def process_files_for_ollama(cls, file_urls: List[str]) -> str:
-        file_contents = []
-        for url in file_urls:
-            try:
-                filename = os.path.basename(url)
-                content = cls.download_file_from_url(url)
-                text = cls.extract_text(content, filename, url)
-                if text.strip():
-                    file_contents.append(f"【文件内容】\n文件名：{filename}\n文件内容：{text}")
-            except Exception as e:
-                print(f"[FileProcessService] 处理文件失败 {url}: {e}")
+        file_contents = [
+            f"【文件内容】\n文件名：{item['filename']}\n文件内容：{item['content']}"
+            for item in cls.process_files(file_urls)
+            if item["status"] == "success" and item["content"].strip()
+        ]
         
         if file_contents:
             return "\n\n".join(file_contents) + "\n\n"
@@ -107,25 +115,46 @@ class FileProcessService:
 
     @classmethod
     def process_files_for_api(cls, file_urls: List[str]) -> List[Dict[str, Any]]:
-        image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']
-        
+        parsed_files = cls.process_files(file_urls)
         files = []
-        for url in file_urls:
-            try:
-                ext = os.path.splitext(url)[1].lower()
-                if ext in image_extensions:
-                    files.append({
-                        "type": "image_url",
-                        "image_url": {
-                            "url": url
-                        }
-                    })
-                else:
-                    files.append({
-                        "type": "text",
-                        "text": f"[文件参考]: {url}"
-                    })
-            except Exception as e:
-                print(f"[FileProcessService] 处理文件失败 {url}: {e}")
-        
+        for item in parsed_files:
+            if item["isImage"]:
+                files.append({"type": "image_url", "image_url": {"url": item["url"]}})
+            if item["content"]:
+                files.append({
+                    "type": "text",
+                    "text": f"【{item['filename']} 解析内容】\n{item['content']}",
+                })
         return files
+
+    @classmethod
+    def process_files(cls, file_urls: List[str]) -> List[Dict[str, Any]]:
+        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+        results: List[Dict[str, Any]] = []
+        for url in file_urls:
+            path = unquote(urlparse(url).path)
+            filename = os.path.basename(path) or "未命名文件"
+            extension = os.path.splitext(filename)[1].lower()
+            item: Dict[str, Any] = {
+                "url": url,
+                "filename": filename,
+                "extension": extension,
+                "isImage": extension in image_extensions,
+                "content": "",
+                "charCount": 0,
+                "status": "success",
+                "error": None,
+            }
+            try:
+                content = cls.download_file_from_url(url)
+                text = cls.extract_text(content, filename, url)
+                item["content"] = text
+                item["charCount"] = len(text)
+                if not text.strip():
+                    item["status"] = "error"
+                    item["error"] = "未提取到可用内容"
+            except Exception as exc:
+                item["status"] = "error"
+                item["error"] = str(exc)
+            results.append(item)
+        return results

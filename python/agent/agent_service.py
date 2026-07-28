@@ -227,7 +227,6 @@ class AgentService:
         skills: Optional[List[str]] = None,
         output_format: Optional[str] = None,
     ):
-        original_text = text
         if isinstance(files, str):
             files = [item.strip() for item in files.split(",") if item.strip()]
         else:
@@ -717,34 +716,6 @@ class AgentService:
                         file_url=file_url,
                         node_id="skill-artifact-generator",
                         node_kind="file",
-                        **common,
-                    )
-                )
-
-            if memory_enabled and full_content:
-                yield cls._dump(
-                    cls._step(config, "memory_write", "started", "正在写入本轮记忆", **common)
-                )
-                from services.memory_service import add_memory
-
-                memory_result = await asyncio.to_thread(
-                    add_memory,
-                    username,
-                    session_id,
-                    [
-                        {"role": "user", "content": original_text},
-                        {"role": "assistant", "content": full_content},
-                    ],
-                )
-                memory_ok = memory_result.get("code") == 0
-                yield cls._dump(
-                    cls._step(
-                        config,
-                        "memory_write",
-                        "completed" if memory_ok else "failed",
-                        "本轮记忆写入完成"
-                        if memory_ok
-                        else memory_result.get("message", "本轮记忆写入失败"),
                         **common,
                     )
                 )

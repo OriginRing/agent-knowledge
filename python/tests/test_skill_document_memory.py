@@ -285,8 +285,7 @@ class ChatPipelineTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(message_content, "# 报告\n内容")
         self.assertNotIn("https://oss.example", message_content)
-        memory_messages = add_memory_mock.call_args.args[2]
-        self.assertEqual(memory_messages[-1]["content"], "# 报告\n内容")
+        add_memory_mock.assert_not_called()
 
     async def test_partial_file_failure_keeps_successful_url(self):
         from agent.agent_service import AgentService
@@ -383,7 +382,7 @@ class ChatPipelineTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(file_node["details"]["errors"]), 2)
         self.assertFalse(any(item.get("event") == "artifact" for item in chunks))
 
-    async def test_memory_is_injected_and_pipeline_steps_are_streamed(self):
+    async def test_memory_is_injected_without_writing_conversation(self):
         from agent.agent_service import AgentService
 
         config = {
@@ -447,7 +446,13 @@ class ChatPipelineTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(item.get("event") == "node" for item in chunks))
         self.assertEqual(chunks[-1]["event"], "done")
         self.assertTrue(chunks[-1]["memory"])
-        add_memory_mock.assert_called_once()
+        self.assertFalse(
+            any(
+                item.get("node", {}).get("name") == "memory_write"
+                for item in chunks
+            )
+        )
+        add_memory_mock.assert_not_called()
 
     async def test_forced_search_skills_emit_nodes_and_feed_model_context(self):
         from agent.agent_service import AgentService

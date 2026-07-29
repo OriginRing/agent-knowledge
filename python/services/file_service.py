@@ -1,5 +1,9 @@
 import os
-import uuid
+import re
+import time
+from datetime import datetime
+from urllib.parse import quote
+
 from dotenv import load_dotenv
 import oss2
 
@@ -28,15 +32,36 @@ class FileService:
     def upload_file(cls, file_bytes, filename, object_prefix="uploads"):
         try:
             bucket = cls.get_bucket()
-            
-            ext = os.path.splitext(filename)[1]
-            new_filename = f"{uuid.uuid4().hex}{ext}"
-            object_key = f"{object_prefix.strip('/')}/{new_filename}"
-            
+
+            normalized_filename = (filename or "").replace("\\", "/")
+            safe_filename = os.path.basename(normalized_filename).strip()
+            safe_filename = re.sub(r"[\x00-\x1f\x7f]", "_", safe_filename)
+            if not safe_filename:
+                safe_filename = "未命名文件"
+
+            date_directory = datetime.now().strftime("%Y%m%d")
+            timestamp = time.time_ns()
+            name_without_extension, extension = os.path.splitext(safe_filename)
+            timestamped_filename = (
+                f"{name_without_extension}-{timestamp}{extension}"
+            )
+            prefix = object_prefix.strip("/") or "uploads"
+            object_key = (
+                f"{prefix}/{date_directory}/{timestamped_filename}"
+            )
+
             bucket.put_object(object_key, file_bytes)
 
-            url = f"https://{os.getenv('OSS_BUCKET_NAME')}.{os.getenv('OSS_ENDPOINT')}/{object_key}"
-            return {'code': 0, 'message': 'success', 'data': {'url': url, 'filename': filename}}
+            encoded_key = quote(object_key, safe="/")
+            url = (
+                f"https://{os.getenv('OSS_BUCKET_NAME')}."
+                f"{os.getenv('OSS_ENDPOINT')}/{encoded_key}"
+            )
+            return {
+                'code': 0,
+                'message': 'success',
+                'data': {'url': url, 'filename': safe_filename},
+            }
         
         except Exception as e:
             return {'code': -1, 'message': f'上传失败: {str(e)}'}

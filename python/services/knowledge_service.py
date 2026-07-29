@@ -40,27 +40,69 @@ class KnowledgeService:
 
     @classmethod
     def split_text(cls, text: str, file_name: str, file_url: str, file_id: str, created_at: int, chunk_size: int = 300, chunk_overlap: int = 30) -> List[Document]:
+        return cls.split_sections(
+            [
+                {
+                    "text": text,
+                    "sourceKind": "document",
+                    "sourceIndex": 1,
+                    "sourceLabel": "文档正文",
+                    "extractionMethod": "native",
+                }
+            ],
+            file_name,
+            file_url,
+            file_id,
+            created_at,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+        )
+
+    @classmethod
+    def split_sections(
+        cls,
+        sections: List[Dict[str, Any]],
+        file_name: str,
+        file_url: str,
+        file_id: str,
+        created_at: int,
+        chunk_size: int = 300,
+        chunk_overlap: int = 30,
+    ) -> List[Document]:
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             length_function=len,
         )
-        chunks = text_splitter.split_text(text)
-        
+        pending = []
+        for section in sections:
+            text = str(section.get("text", "")).strip()
+            if not text:
+                continue
+            for chunk in text_splitter.split_text(text):
+                pending.append((chunk, section))
+
         documents = []
-        for i, chunk in enumerate(chunks):
-            documents.append(Document(
-                page_content=chunk,
-                metadata={
-                    'chunk_index': i,
-                    'total_chunks': len(chunks),
-                    'file_name': file_name,
-                    'file_url': file_url,
-                    'file_id': file_id,
-                    'created_at': created_at,
-                }
-            ))
-        
+        for index, (chunk, section) in enumerate(pending):
+            documents.append(
+                Document(
+                    page_content=chunk,
+                    metadata={
+                        'chunk_index': index,
+                        'total_chunks': len(pending),
+                        'file_name': file_name,
+                        'file_url': file_url,
+                        'file_id': file_id,
+                        'created_at': created_at,
+                        'source_kind': str(section.get("sourceKind", "document")),
+                        'source_index': int(section.get("sourceIndex", 1)),
+                        'source_label': str(section.get("sourceLabel", "文档正文")),
+                        'extraction_method': str(
+                            section.get("extractionMethod", "native")
+                        ),
+                    },
+                )
+            )
         return documents
 
     @classmethod
@@ -74,15 +116,22 @@ class KnowledgeService:
             from services.file_process_service import FileProcessService
             
             content = FileProcessService.download_file_from_url(url)
-            text = FileProcessService.extract_text(content, file_name, url)
+            parsed = FileProcessService.parse_document(content, file_name, url)
+            text = parsed["content"]
             
             if not text.strip():
-                return {'code': -1, 'message': '文件内容为空'}
+                warning_text = "；".join(parsed.get("warnings", []))
+                return {
+                    'code': -1,
+                    'message': f"文件内容为空{f'：{warning_text}' if warning_text else ''}",
+                }
             
             file_id, created_at = cls.generate_file_id(file_name)
             print(f"[KnowledgeService] 生成file_id: {file_id}, created_at: {created_at}")
             
-            documents = cls.split_text(text, file_name, url, file_id, created_at)
+            documents = cls.split_sections(
+                parsed["sections"], file_name, url, file_id, created_at
+            )
             print(f"[KnowledgeService] 生成{len(documents)}个切片，第一个切片的file_id: {documents[0].metadata.get('file_id')}")
             
             cls.add_to_vector_store(documents)
@@ -97,6 +146,13 @@ class KnowledgeService:
                     'createdAt': created_at,
                     'chunk_count': len(documents),
                     'text_length': len(text),
+                    'parseStatus': (
+                        'partial' if parsed.get('warnings') else 'success'
+                    ),
+                    'pageCount': parsed.get('pageCount', 0),
+                    'imageCount': parsed.get('imageCount', 0),
+                    'ocrCount': parsed.get('ocrCount', 0),
+                    'warnings': parsed.get('warnings', []),
                 }
             }
         
@@ -120,6 +176,10 @@ class KnowledgeService:
                     'fileUrl': doc.metadata.get('file_url', ''),
                     'fileContent': doc.page_content,
                     'createdAt': doc.metadata.get('created_at', 0),
+                    'sourceKind': doc.metadata.get('source_kind'),
+                    'sourceIndex': doc.metadata.get('source_index'),
+                    'sourceLabel': doc.metadata.get('source_label'),
+                    'extractionMethod': doc.metadata.get('extraction_method'),
                 })
             
             return knowledge_items
@@ -141,7 +201,15 @@ class KnowledgeService:
                 knowledge_text = "【知识库检索结果】\n"
                 knowledge_items = []
                 for i, doc in enumerate(docs):
-                    knowledge_text += f"{i+1}. {doc['fileContent']}\n\n"
+                    source = doc.get('sourceLabel')
+                    source_hint = (
+                        f"（{doc['fileName']} / {source}）"
+                        if source
+                        else f"（{doc['fileName']}）"
+                    )
+                    knowledge_text += (
+                        f"{i+1}. {source_hint}\n{doc['fileContent']}\n\n"
+                    )
                 knowledge_text += "\n请基于以上知识库信息回答用户问题：\n"
                 
                 for doc in docs:
@@ -150,6 +218,10 @@ class KnowledgeService:
                         'fileName': doc['fileName'],
                         'fileUrl': doc['fileUrl'],
                         'fileContent': doc['fileContent'],
+                        'sourceKind': doc.get('sourceKind'),
+                        'sourceIndex': doc.get('sourceIndex'),
+                        'sourceLabel': doc.get('sourceLabel'),
+                        'extractionMethod': doc.get('extractionMethod'),
                     })
                 
                 return {"knowledge_text": knowledge_text, "knowledge_items": knowledge_items}
@@ -186,5 +258,3 @@ class KnowledgeService:
             return vector_store._collection.count()
         except Exception:
             return 0
-
-    

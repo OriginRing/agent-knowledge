@@ -50,8 +50,15 @@ export function splitUrlToFileArr(
     .filter(Boolean);
 
   return urlList.map((url) => {
+    let name: string;
+    try {
+      const pathName = new URL(url, "http://localhost").pathname;
+      name = decodeURIComponent(pathName.split("/").pop() || "");
+    } catch {
+      name = decodeURIComponent(url.split("?")[0].split("/").pop() || "");
+    }
     return {
-      name: url.split("/").pop() as string,
+      name,
       url,
     };
   });

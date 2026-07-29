@@ -41,7 +41,8 @@ export const getThoughtChainLabel = (
 
 interface FilePreviewStore {
   setAgentPreviewFiles: (files: KnowledgeDoc[]) => void;
-  setAgentKnowledgeFile: (file: File) => void;
+  setAgentPreviewFile?: (file: File) => void;
+  setAgentKnowledgeFile?: (file: File) => void;
   setAgentTool: (visible: boolean) => void;
   setAgentPreview: (visible: boolean) => void;
 }
@@ -117,7 +118,13 @@ export const openGeneratedFilePreview = async (
     type: blob.type || file.mimeType,
   });
   store.setAgentPreviewFiles([]);
-  store.setAgentKnowledgeFile(preview);
+  if (store.setAgentPreviewFile) {
+    store.setAgentPreviewFile(preview);
+  } else if (store.setAgentKnowledgeFile) {
+    store.setAgentKnowledgeFile(preview);
+  } else {
+    throw new Error("文件预览状态未提供文件写入方法");
+  }
   store.setAgentTool(false);
   store.setAgentPreview(true);
   return preview;

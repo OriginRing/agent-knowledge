@@ -12,3 +12,19 @@ defineProps<{
 <template>
   <Iconfont :type="type" />
 </template>
+<style lang="less" scoped>
+span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+:deep(span) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+:deep(svg) {
+  width: 80%;
+  height: 80%;
+}
+</style>

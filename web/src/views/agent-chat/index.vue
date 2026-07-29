@@ -21,30 +21,19 @@
         >
           <template #header="{ item }">
             <a-flex v-if="item.role === 'user'" vertical gap="8">
-              <a-flex
+              <div
                 v-for="(file, index) in splitUrlToFileArr(item.files)"
                 :key="index"
-                class="file-box"
-                gap="8"
+                @click="previewFile(file)"
               >
-                <a-image
-                  v-if="isImageFile(file.name)"
-                  :width="50"
-                  :height="50"
-                  :src="file.url"
-                  :alt="file.name"
-                >
-                </a-image>
-                <FileTextOutlined
-                  v-else
-                  style="font-size: 50px"
-                  class="file-icon"
-                />
-                <a-flex vertical gap="8" justify="center">
-                  <p>{{ file.name }}</p>
-                  <span>{{ getFileExtUpper(file.name) }}</span>
+                <a-flex class="file-box" gap="8">
+                  <FileIcon :name="file.name" class="file-icon" />
+                  <a-flex vertical gap="8" justify="center">
+                    <p>{{ file.name }}</p>
+                    <span>{{ getFileExtUpper(file.name) }}</span>
+                  </a-flex>
                 </a-flex>
-              </a-flex>
+              </div>
             </a-flex>
 
             <ChatThoughtChain
@@ -70,7 +59,11 @@
               <a-flex
                 v-if="item.role === 'assistant' && item?.knowledge?.length"
               >
-                <a-button shape="round" size="small" @click="previewFile(item)">
+                <a-button
+                  shape="round"
+                  size="small"
+                  @click="previewKnowledgeFile(item)"
+                >
                   {{ knowledgeLength(item?.knowledge) }} 篇资料
                 </a-button>
               </a-flex>
@@ -117,7 +110,6 @@ import {
   CopyOutlined,
   SyncOutlined,
   DownloadOutlined,
-  FileTextOutlined,
 } from "@ant-design/icons-vue";
 import ChatInput from "@view/components/chat-input.vue";
 import ChatThoughtChain from "@view/components/chat-thought-chain.vue";
@@ -132,14 +124,14 @@ import type {
   ChatNode,
   KnowledgeDoc,
 } from "@view/interfaces/agent-interface";
-import {
-  getFileExtUpper,
-  isImageFile,
-  splitUrlToFileArr,
-} from "@view/utils/file";
+import { getFileExtUpper, splitUrlToFileArr } from "@view/utils/file";
 import { createSseParser, upsertChatNode } from "@view/utils/sse";
 import { rehydrateHistoryMessages } from "@view/utils/chat-state";
-import { mergeReasoningIntoModelNode } from "@view/utils/thought-chain";
+import {
+  mergeReasoningIntoModelNode,
+  openGeneratedFilePreview,
+} from "@view/utils/thought-chain";
+import FileIcon from "@view/components/file-icon.vue";
 
 const { useToken } = theme;
 const { token } = useToken();
@@ -187,9 +179,21 @@ const supportStop = computed(() => {
   );
 });
 
-const previewFile = (item: AgentChat) => {
+const previewFile = (file: { name: string; url: string }) => {
+  console.log(1);
+  openGeneratedFilePreview(
+    {
+      fileUrl: file.url,
+      fileName: file.name,
+    },
+    chatService,
+  );
+};
+
+const previewKnowledgeFile = (item: AgentChat) => {
   chatService.setAgentPreview(true);
   chatService.setAgentTool(false);
+  chatService.setAgentPreviewFile(null);
   chatService.setAgentPreviewFiles(item.knowledge || []);
 };
 
@@ -429,6 +433,7 @@ onMounted(() => {
   max-width: 180px;
   min-width: 160px;
   overflow: hidden;
+  cursor: pointer;
 
   :deep(.ant-image) {
     flex: 0 0 50px;
@@ -443,6 +448,9 @@ onMounted(() => {
 
   .file-icon {
     width: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex: 0 0 50px;
   }
 

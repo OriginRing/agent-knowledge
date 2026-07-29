@@ -477,7 +477,10 @@ class AgentService:
                                 )
                     file_status = (
                         "completed"
-                        if any(item.get("status") == "success" for item in parsed_files)
+                        if any(
+                            item.get("status") in {"success", "partial"}
+                            for item in parsed_files
+                        )
                         else "failed"
                     )
                     yield cls._dump(

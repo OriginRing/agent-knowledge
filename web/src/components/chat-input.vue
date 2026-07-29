@@ -34,18 +34,13 @@
                     class="close"
                     @click="clearFile(index)"
                   />
-                  <a-image
-                    v-if="isImageFile(file.name)"
-                    :width="50"
-                    :src="file.image"
+                  <FileIcon :name="file.name" class="file-icon" />
+                  <a-flex
+                    vertical
+                    gap="8"
+                    justify="center"
+                    style="overflow: hidden"
                   >
-                  </a-image>
-                  <FileTextOutlined
-                    v-else
-                    style="font-size: 50px"
-                    class="file-icon"
-                  />
-                  <a-flex vertical gap="8" justify="center">
                     <p>{{ file.name }}</p>
                     <span
                       >{{ getFileExtUpper(file.name) }}·{{
@@ -75,7 +70,7 @@
                       <a-upload
                         ref="imageUploadRef"
                         :show-upload-list="false"
-                        accept="image/png,image/jpeg,image/gif,image/webp"
+                        accept="image/png,image/jpeg,image/gif,image/webp,image/bmp,image/tiff"
                         :before-upload="handleImageBeforeUpload"
                       >
                         <a-flex justify="center">上传图片</a-flex>
@@ -85,7 +80,7 @@
                       <a-upload
                         ref="fileUploadRef"
                         :show-upload-list="false"
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.md"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.md,.pptx,.ppt,.html,.htm,.ofd"
                         :before-upload="handleFileBeforeUpload"
                       >
                         <a-flex justify="center">上传文档</a-flex>
@@ -149,7 +144,6 @@ import {
   ApiOutlined,
   GlobalOutlined,
   PaperClipOutlined,
-  FileTextOutlined,
   CloseCircleOutlined,
   ExclamationOutlined,
 } from "@ant-design/icons-vue";
@@ -158,6 +152,7 @@ import { useChatStore } from "@view/stores/chat";
 import { message, theme } from "ant-design-vue";
 import httpClient from "@view/services/http";
 import { formatFileSize, getFileExtUpper, isImageFile } from "@view/utils/file";
+import FileIcon from "@view/components/file-icon.vue";
 
 const emit = defineEmits(["stopMessage", "sendMessage"]);
 const _props = defineProps({
@@ -350,7 +345,10 @@ const handleFileBeforeUpload = async (
 
   .file-box-scroll {
     width: 200px;
+    overflow: hidden;
     flex: 0 0 200px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .file-error {
@@ -395,6 +393,9 @@ const handleFileBeforeUpload = async (
 
     .file-icon {
       width: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       flex: 0 0 50px;
     }
 

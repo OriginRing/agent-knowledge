@@ -6,7 +6,7 @@ def execute(query: str, files: list[str], **_) -> dict:
     contexts = [
         f"【{item['filename']} 解析内容】\n{item['content']}"
         for item in parsed_files
-        if item["status"] == "success" and item["content"]
+        if item["status"] in {"success", "partial"} and item["content"]
     ]
     return {
         "context": "\n\n".join(contexts),

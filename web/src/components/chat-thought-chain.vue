@@ -199,8 +199,9 @@ const previewFile = async (file: GeneratedFileDetail) => {
   }
 };
 
-const renderGeneratedFile = (file: GeneratedFileDetail) =>
-  h(
+const renderGeneratedFile = (file: GeneratedFileDetail) => {
+  const format = file.format?.toUpperCase() || "FILE";
+  return h(
     Flex,
     {
       class: "generated-file",
@@ -221,8 +222,8 @@ const renderGeneratedFile = (file: GeneratedFileDetail) =>
                 h(
                   "span",
                   file.size
-                    ? `${file.format.toUpperCase()} · ${formatFileSize(file.size)}`
-                    : file.format.toUpperCase(),
+                    ? `${format} · ${formatFileSize(file.size)}`
+                    : format,
                 ),
               ]),
             ],
@@ -255,6 +256,7 @@ const renderGeneratedFile = (file: GeneratedFileDetail) =>
       ],
     },
   );
+};
 
 const renderParsedFiles = (files: ParsedFileDetail[]) =>
   h(
@@ -269,8 +271,12 @@ const renderParsedFiles = (files: ParsedFileDetail[]) =>
           {
             default: () =>
               `${file.charCount} 字符 · ${
-                file.status === "success" ? "解析成功" : "解析失败"
-              }`,
+                file.status === "success"
+                  ? "解析成功"
+                  : file.status === "partial"
+                    ? "部分解析成功"
+                    : "解析失败"
+              } · ${file.pageCount || file.sections?.length || 0} 个分段 · OCR ${file.ocrCount || 0} 张`,
           },
         ),
         file.content
@@ -279,6 +285,9 @@ const renderParsedFiles = (files: ParsedFileDetail[]) =>
         file.error
           ? h("p", { class: "node-error", role: "alert" }, file.error)
           : undefined,
+        ...(file.warnings ?? []).map((warning) =>
+          h("p", { class: "node-warning", role: "status" }, warning),
+        ),
       ]),
     ),
   );
@@ -342,6 +351,13 @@ const renderNodeContent = (node: ChatNode) => {
                 String(item.title || item.fileName || item.url),
               )
             : h("strong", String(item.title || item.fileName || "检索结果")),
+          item.sourceLabel
+            ? h(
+                TypographyText,
+                { type: "secondary" },
+                { default: () => ` · ${String(item.sourceLabel)}` },
+              )
+            : undefined,
           item.content || item.fileContent
             ? h("p", String(item.content || item.fileContent))
             : undefined,
@@ -479,6 +495,11 @@ const items = computed<ThoughtChainItem[]>(() =>
 :deep(.node-error) {
   margin: 0;
   color: var(--color-error);
+}
+
+:deep(.node-warning) {
+  color: #d48806;
+  margin: 4px 0 0;
 }
 
 :deep(.node-result-list) {

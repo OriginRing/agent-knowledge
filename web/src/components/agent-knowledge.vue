@@ -160,7 +160,13 @@ const uploadKnowledge = async (filename: string, url: string) => {
     fileName: filename,
   });
   if (knowRes.code === 0) {
-    message.success("已上传到知识库!");
+    if (knowRes.data?.warnings?.length) {
+      message.warning(
+        `已上传到知识库，${knowRes.data.warnings.length} 项内容解析不完整`,
+      );
+    } else {
+      message.success("已上传到知识库!");
+    }
     fileList.value = [];
     fileName.value = "";
     fileForm.url = "";

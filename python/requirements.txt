@@ -20,3 +20,6 @@ openpyxl
 python-pptx
 reportlab
 pypdf
+pypdfium2
+easyofd
+pillow

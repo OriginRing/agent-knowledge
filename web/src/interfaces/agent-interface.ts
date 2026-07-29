@@ -53,9 +53,22 @@ export interface ParsedFileDetail {
   extension: string;
   isImage: boolean;
   content: string;
+  sections: ParsedDocumentSection[];
   charCount: number;
-  status: "success" | "error";
+  pageCount: number;
+  imageCount: number;
+  ocrCount: number;
+  warnings: string[];
+  status: "success" | "partial" | "error";
   error?: string | null;
+}
+
+export interface ParsedDocumentSection {
+  text: string;
+  sourceKind: "document" | "page" | "sheet" | "slide" | "image";
+  sourceIndex: number;
+  sourceLabel: string;
+  extractionMethod: string;
 }
 
 export interface ChatNode {
@@ -91,9 +104,9 @@ export interface ChatNode {
 export interface GeneratedFileDetail {
   fileUrl: string;
   fileName: string;
-  format: string;
-  mimeType: string;
-  size: number;
+  format?: string;
+  mimeType?: string;
+  size?: number;
 }
 
 export interface ChatArtifact {
@@ -112,6 +125,10 @@ export interface KnowledgeDoc {
   fileContent: string | string[];
   fileUrl: string;
   createdAt: number;
+  sourceKind?: string;
+  sourceIndex?: number;
+  sourceLabel?: string;
+  extractionMethod?: string;
 }
 
 export interface Memory {

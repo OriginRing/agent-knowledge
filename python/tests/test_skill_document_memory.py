@@ -1,6 +1,10 @@
 import json
+import io
 import os
+import subprocess
+import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -9,6 +13,9 @@ import requests
 
 from services.document_service import DocumentService
 from services.file_process_service import FileProcessService
+from services.file_service import FileService
+from services.knowledge_service import KnowledgeService
+from services.ocr_service import OCRService
 from services.memory_service import format_memory_context
 from services.skill_service import SkillService
 
@@ -115,6 +122,44 @@ class DocumentServiceTest(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
 
 
+class FileServiceTest(unittest.TestCase):
+    def test_upload_url_uses_date_directory_and_timestamped_filename(self):
+        class FakeBucket:
+            def __init__(self):
+                self.object_key = ""
+
+            def put_object(self, object_key, _content):
+                self.object_key = object_key
+
+        bucket = FakeBucket()
+        with (
+            patch.object(FileService, "get_bucket", return_value=bucket),
+            patch.dict(
+                os.environ,
+                {
+                    "OSS_BUCKET_NAME": "demo-bucket",
+                    "OSS_ENDPOINT": "oss-cn-beijing.aliyuncs.com",
+                },
+            ),
+        ):
+            result = FileService.upload_file(
+                b"content", "../季度 报告.docx"
+            )
+
+        self.assertEqual(result["code"], 0)
+        self.assertEqual(result["data"]["filename"], "季度 报告.docx")
+        key_parts = bucket.object_key.split("/")
+        self.assertEqual(len(key_parts), 3)
+        self.assertRegex(key_parts[1], r"^\d{8}$")
+        self.assertRegex(
+            key_parts[2], r"^季度 报告-\d+\.docx$"
+        )
+        self.assertRegex(
+            result["data"]["url"],
+            r"/\d{8}/%E5%AD%A3%E5%BA%A6%20%E6%8A%A5%E5%91%8A-\d+\.docx$",
+        )
+
+
 class MemoryContextTest(unittest.TestCase):
     def test_formats_nested_memos_response_without_duplicates(self):
         result = {
@@ -141,6 +186,15 @@ class MemoryContextTest(unittest.TestCase):
 
 class FileProcessServiceTest(unittest.TestCase):
     def test_parsed_content_is_returned_for_node_output(self):
+        parsed = FileProcessService._new_result(
+            [
+                FileProcessService._section(
+                    "OCR 或文件解析正文", "image", 1, "图片", "ocr"
+                )
+            ],
+            image_count=1,
+            ocr_count=1,
+        )
         with (
             patch.object(
                 FileProcessService,
@@ -149,8 +203,8 @@ class FileProcessServiceTest(unittest.TestCase):
             ),
             patch.object(
                 FileProcessService,
-                "extract_text",
-                return_value="OCR 或文件解析正文",
+                "parse_document",
+                return_value=parsed,
             ),
         ):
             result = FileProcessService.process_files(
@@ -160,6 +214,249 @@ class FileProcessServiceTest(unittest.TestCase):
         self.assertEqual(result[0]["content"], "OCR 或文件解析正文")
         self.assertEqual(result[0]["charCount"], len("OCR 或文件解析正文"))
         self.assertTrue(result[0]["isImage"])
+        self.assertEqual(result[0]["ocrCount"], 1)
+
+    @staticmethod
+    def _image_bytes(text: str = "OCR") -> bytes:
+        from PIL import Image, ImageDraw
+
+        image = Image.new("RGB", (120, 50), "white")
+        ImageDraw.Draw(image).text((8, 15), text, fill="black")
+        output = io.BytesIO()
+        image.save(output, format="PNG")
+        return output.getvalue()
+
+    def test_docx_extracts_paragraph_table_and_embedded_image(self):
+        from docx import Document
+        from docx.shared import Inches
+
+        document = Document()
+        document.add_paragraph("正文内容")
+        table = document.add_table(rows=1, cols=2)
+        table.cell(0, 0).text = "名称"
+        table.cell(0, 1).text = "数值"
+        document.add_picture(io.BytesIO(self._image_bytes()), width=Inches(1))
+        output = io.BytesIO()
+        document.save(output)
+
+        with patch.object(
+            FileProcessService,
+            "_ocr_image_bytes",
+            return_value=("图片文字", None),
+        ):
+            result = FileProcessService.parse_document(output.getvalue(), "demo.docx")
+
+        self.assertIn("正文内容", result["content"])
+        self.assertIn("名称\t数值", result["content"])
+        self.assertIn("图片文字", result["content"])
+        self.assertEqual(result["imageCount"], 1)
+        self.assertEqual(result["ocrCount"], 1)
+
+    def test_xlsx_extracts_sheets_and_embedded_images(self):
+        from openpyxl import Workbook
+        from openpyxl.drawing.image import Image as SpreadsheetImage
+        from PIL import Image
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "数据"
+        sheet.append(["项目", "结果"])
+        sheet.append(["解析", "正常"])
+        sheet.add_image(
+            SpreadsheetImage(Image.open(io.BytesIO(self._image_bytes()))), "D1"
+        )
+        output = io.BytesIO()
+        workbook.save(output)
+
+        with patch.object(
+            FileProcessService,
+            "_ocr_image_bytes",
+            return_value=("表格图片文字", None),
+        ):
+            result = FileProcessService.parse_document(output.getvalue(), "demo.xlsx")
+
+        self.assertIn("项目\t结果", result["content"])
+        self.assertIn("表格图片文字", result["content"])
+        self.assertEqual(result["sections"][0]["sourceLabel"], "工作表：数据")
+        self.assertEqual(result["imageCount"], 1)
+
+    def test_pptx_extracts_text_table_and_embedded_image(self):
+        from pptx import Presentation
+        from pptx.util import Inches
+
+        presentation = Presentation()
+        slide = presentation.slides.add_slide(presentation.slide_layouts[5])
+        slide.shapes.title.text = "幻灯片标题"
+        table = slide.shapes.add_table(1, 2, Inches(1), Inches(2), Inches(5), Inches(1)).table
+        table.cell(0, 0).text = "名称"
+        table.cell(0, 1).text = "数值"
+        slide.shapes.add_picture(io.BytesIO(self._image_bytes()), Inches(1), Inches(4))
+        output = io.BytesIO()
+        presentation.save(output)
+
+        with patch.object(
+            FileProcessService,
+            "_ocr_image_bytes",
+            return_value=("幻灯片图片文字", None),
+        ):
+            result = FileProcessService.parse_document(output.getvalue(), "demo.pptx")
+
+        self.assertIn("幻灯片标题", result["content"])
+        self.assertIn("名称\t数值", result["content"])
+        self.assertIn("幻灯片图片文字", result["content"])
+        self.assertEqual(result["pageCount"], 1)
+
+    def test_pdf_only_ocrs_pages_without_native_text(self):
+        from reportlab.pdfgen import canvas
+
+        output = io.BytesIO()
+        pdf = canvas.Canvas(output)
+        pdf.drawString(72, 760, "This page has enough native text for extraction.")
+        pdf.showPage()
+        pdf.showPage()
+        pdf.save()
+
+        with (
+            patch.object(
+                FileProcessService,
+                "_render_pdf_page",
+                return_value=self._image_bytes(),
+            ) as render_mock,
+            patch.object(
+                FileProcessService,
+                "_ocr_image_bytes",
+                return_value=("扫描页文字", None),
+            ),
+        ):
+            result = FileProcessService.parse_document(output.getvalue(), "demo.pdf")
+
+        self.assertEqual(render_mock.call_count, 1)
+        self.assertEqual(result["ocrCount"], 1)
+        self.assertIn("扫描页文字", result["content"])
+
+    def test_legacy_office_uses_isolated_libreoffice_conversion(self):
+        from docx import Document
+
+        def fake_run(command, **_):
+            output_dir = Path(command[command.index("--outdir") + 1])
+            input_path = Path(command[-1])
+            document = Document()
+            document.add_paragraph("旧版 Word 正文")
+            document.save(output_dir / f"{input_path.stem}.docx")
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        with (
+            patch("services.file_process_service.shutil.which", return_value="/fake/soffice"),
+            patch("services.file_process_service.subprocess.run", side_effect=fake_run),
+        ):
+            result = FileProcessService.parse_document(b"legacy", "demo.doc")
+
+        self.assertIn("旧版 Word 正文", result["content"])
+        self.assertTrue(
+            result["sections"][0]["extractionMethod"].startswith("libreoffice+")
+        )
+
+    def test_ofd_conversion_reuses_pdf_page_pipeline(self):
+        class FakeOFD:
+            def read(self, encoded, save_xml=False):
+                self.content = encoded
+                self.save_xml = save_xml
+
+            def to_pdf(self):
+                return b"%PDF-fake"
+
+            def del_data(self):
+                return None
+
+        easyofd_module = types.ModuleType("easyofd")
+        easyofd_module.__path__ = []
+        ofd_module = types.ModuleType("easyofd.ofd")
+        ofd_module.OFD = FakeOFD
+        parsed_pdf = FileProcessService._new_result(
+            [
+                FileProcessService._section(
+                    "OFD 页面文字", "page", 1, "第 1 页", "ocr"
+                )
+            ],
+            page_count=1,
+            ocr_count=1,
+        )
+        with (
+            patch.dict(
+                sys.modules,
+                {"easyofd": easyofd_module, "easyofd.ofd": ofd_module},
+            ),
+            patch.object(
+                FileProcessService, "_parse_pdf", return_value=parsed_pdf
+            ) as parse_pdf,
+        ):
+            result = FileProcessService.parse_document(b"ofd", "demo.ofd")
+
+        parse_pdf.assert_called_once_with(b"%PDF-fake")
+        self.assertEqual(result["sections"][0]["extractionMethod"], "ofd+ocr")
+
+    def test_ocr_warning_marks_file_as_partial(self):
+        parsed = FileProcessService._new_result(
+            [
+                FileProcessService._section(
+                    "已有正文", "document", 1, "文档正文", "native"
+                )
+            ],
+            image_count=1,
+            warnings=["图片 1 OCR 失败"],
+        )
+        with (
+            patch.object(
+                FileProcessService, "download_file_from_url", return_value=b"content"
+            ),
+            patch.object(FileProcessService, "parse_document", return_value=parsed),
+        ):
+            result = FileProcessService.process_files(
+                ["https://oss.example/demo.docx"]
+            )[0]
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual(result["content"], "已有正文")
+
+
+class OCRServiceTest(unittest.TestCase):
+    def test_image_bytes_are_normalized_to_data_url(self):
+        image_bytes = FileProcessServiceTest._image_bytes()
+        with patch.object(
+            OCRService, "_recognize", return_value="识别结果"
+        ) as recognize:
+            text = OCRService.extract_text_from_image_bytes(image_bytes)
+        self.assertEqual(text, "识别结果")
+        self.assertTrue(recognize.call_args.args[0].startswith("data:image/jpeg;base64,"))
+
+
+class KnowledgeSectionTest(unittest.TestCase):
+    def test_sections_are_chunked_without_crossing_source_boundaries(self):
+        documents = KnowledgeService.split_sections(
+            [
+                {
+                    "text": "第一页内容",
+                    "sourceKind": "page",
+                    "sourceIndex": 1,
+                    "sourceLabel": "第 1 页",
+                    "extractionMethod": "native",
+                },
+                {
+                    "text": "第二页扫描内容",
+                    "sourceKind": "page",
+                    "sourceIndex": 2,
+                    "sourceLabel": "第 2 页",
+                    "extractionMethod": "ocr",
+                },
+            ],
+            "demo.pdf",
+            "https://oss.example/demo.pdf",
+            "demo-1",
+            1,
+        )
+        self.assertEqual(len(documents), 2)
+        self.assertEqual(documents[0].metadata["source_index"], 1)
+        self.assertEqual(documents[1].metadata["source_label"], "第 2 页")
+        self.assertEqual(documents[1].metadata["extraction_method"], "ocr")
 
 
 class ChatPipelineTest(unittest.IsolatedAsyncioTestCase):

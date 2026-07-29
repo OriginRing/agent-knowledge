@@ -1,6 +1,6 @@
 <template>
   <FilePreview v-if="file" :file="file" @close="closeFilePreview" />
-  <div v-else class="file-preview">
+  <div v-else class="knowledge-menu">
     <a-button
       class="file-preview-close"
       type="text"
@@ -53,7 +53,7 @@ const closePreview = () => {
   files.value = [];
   chatService.setAgentPreview(false);
   chatService.setAgentPreviewFiles([]);
-  chatService.setAgentKnowledgeFile(null);
+  chatService.setAgentPreviewFile(null);
 };
 
 const closeFilePreview = () => {
@@ -114,11 +114,11 @@ watchEffect(() => {
 });
 
 watchEffect(() => {
-  file.value = chatService.getAgentKnowledgeFile;
+  file.value = chatService.getAgentPreviewFile;
 });
 </script>
 <style lang="less" scoped>
-.file-preview {
+.knowledge-menu {
   padding: 20px 20px 0;
   position: relative;
   height: 100%;

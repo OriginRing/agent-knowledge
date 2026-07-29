@@ -30,6 +30,9 @@
               </span>
             </a-flex>
           </template>
+          <a-tag v-if="item.sourceLabel" color="blue">
+            {{ item.sourceLabel }}
+          </a-tag>
           <div class="card-content">
             {{ item.fileContent }}
           </div>
@@ -85,7 +88,7 @@ const previewFile = async (name: string, url: string) => {
 
     chatService.setAgentPreview(true);
     chatService.setAgentTool(false);
-    chatService.setAgentKnowledgeFile(file.value);
+    chatService.setAgentPreviewFile(file.value);
   } catch (error) {
     console.error("转换文件失败:", error);
     throw error;

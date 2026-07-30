@@ -30,14 +30,13 @@ class HistoryManager:
     @classmethod
     def _trim_messages(cls, messages: List[Dict[str, str]], max_tokens: int) -> List[Dict[str, str]]:
         try:
-            from langchain_core.messages import trim_messages
-            from langchain_core.messages import count_tokens_approximately
+            from langchain_core.messages.utils import trim_messages
             
             trimmed_messages = trim_messages(
                 messages,
                 max_tokens=max_tokens,
                 strategy="last",
-                token_counter=count_tokens_approximately,
+                token_counter="approximate",
                 include_system=True,
                 start_on="human",
                 end_on=("human", "tool"),
@@ -46,7 +45,13 @@ class HistoryManager:
             
             result = []
             for msg in trimmed_messages:
-                result.append({'role': msg.role, 'content': msg.content})
+                role = {
+                    "human": "user",
+                    "ai": "assistant",
+                    "system": "system",
+                    "tool": "tool",
+                }.get(msg.type, msg.type)
+                result.append({'role': role, 'content': msg.content})
             
             return result
         except Exception as e:

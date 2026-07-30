@@ -4,9 +4,23 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from pydantic import ValidationError
 
+from agent.history_manager import HistoryManager
 from models.user import UserPasswordUpdateRequest, UserUpdateRequest
 from services.history_service import normalize_history_payload
 from services.user_service import update_user_password
+
+
+class HistoryManagerTest(unittest.TestCase):
+    def test_trim_messages_uses_approximate_counter_and_restores_api_roles(self):
+        messages = [
+            {"role": "user", "content": "较早问题 " * 100},
+            {"role": "assistant", "content": "较早回答 " * 100},
+            {"role": "user", "content": "最新问题"},
+        ]
+
+        result = HistoryManager._trim_messages(messages, max_tokens=30)
+
+        self.assertEqual(result, [{"role": "user", "content": "最新问题"}])
 
 
 class HistoryPayloadTest(unittest.TestCase):

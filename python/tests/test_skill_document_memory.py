@@ -24,6 +24,42 @@ class SkillServiceTest(unittest.TestCase):
     def tearDown(self):
         SkillService._cache = None
 
+    def test_chart_visualization_skill_is_selected_for_chart_requests(self):
+        for prompt in (
+            "请生成销售额折线图",
+            "把这些数据可视化展示出来",
+            "绘制一张雷达图",
+        ):
+            with self.subTest(prompt=prompt):
+                skill = SkillService.select_skill(prompt, [])
+                self.assertIsNotNone(skill)
+                self.assertEqual(skill.name, "chart-visualization")
+                self.assertEqual(skill.kind, "prompt")
+
+    def test_chart_visualization_skill_can_be_selected_explicitly(self):
+        skill = SkillService.select_skill(
+            "展示这些数据",
+            [],
+            requested_skill="chart-visualization",
+        )
+        self.assertEqual(skill.name, "chart-visualization")
+        self.assertIn("```vis line", skill.prompt)
+        for chart_type in (
+            "line",
+            "area",
+            "column",
+            "bar",
+            "pie",
+            "scatter",
+            "radar",
+            "table",
+        ):
+            self.assertIn(f"`{chart_type}`", skill.prompt)
+
+    def test_excel_table_request_does_not_select_chart_visualization(self):
+        skill = SkillService.select_skill("请生成 Excel 表格", [])
+        self.assertIsNone(skill)
+
     def test_builtin_image_skill_is_selected(self):
         skill = SkillService.select_skill(
             "请分析这张图并生成文档",
@@ -473,6 +509,63 @@ class ChatPipelineTest(unittest.IsolatedAsyncioTestCase):
             "support_connect": True,
             "support_knowledge": True,
         }
+
+    async def test_explicit_chart_skill_injects_gpt_vis_system_prompt(self):
+        from agent.agent_service import AgentService
+
+        config = self._config()
+        captured_messages = []
+
+        async def fake_model_stream(
+            _config, _text, _thinking, _connect, base_messages, context
+        ):
+            captured_messages.extend(base_messages)
+            yield AgentService._event(
+                config,
+                event="message",
+                content=(
+                    "月度销售额\n\n"
+                    "```vis line\n"
+                    "data\n"
+                    "  - time 2024-01\n"
+                    "    value 120\n"
+                    "```\n\n"
+                    "销售额为 120。"
+                ),
+                **context,
+            )
+
+        with (
+            patch.object(AgentService, "get_agent_config", return_value=config),
+            patch.object(
+                AgentService, "_chat_stream_ollama", side_effect=fake_model_stream
+            ),
+            patch("services.memory_service.is_memory_enabled", return_value=False),
+        ):
+            chunks = [
+                json.loads(chunk)
+                async for chunk in AgentService.chat_stream(
+                    agent_code="000001",
+                    text="展示这些数据",
+                    skill="chart-visualization",
+                )
+            ]
+
+        self.assertTrue(
+            any(
+                "GPT-Vis 图表生成" in item["content"]
+                and "```vis line" in item["content"]
+                for item in captured_messages
+                if item["role"] == "system"
+            )
+        )
+        skill_node = next(
+            item["node"]
+            for item in chunks
+            if item.get("node", {}).get("name") == "skill"
+        )
+        self.assertIn("chart-visualization", skill_node["details"]["skills"])
+        self.assertEqual(chunks[-1]["skill"], "chart-visualization")
 
     async def test_multiple_generated_files_use_one_file_node(self):
         from agent.agent_service import AgentService

@@ -9,6 +9,10 @@
       '--color-primary': token.colorPrimary,
       '--color-success': token.colorSuccess,
       '--color-warning': token.colorWarning,
+      '--gpt-vis-bg-container': token.colorBgContainer,
+      '--gpt-vis-bg-elevated': token.colorBgElevated,
+      '--gpt-vis-bg-hover': token.colorFillSecondary,
+      '--gpt-vis-text': token.colorText,
     }"
   >
     <div class="agent-content">

@@ -98,6 +98,7 @@ const handleShortcut = (event: KeyboardEvent) => {
       router.push("/");
     }
     chatService.setAgentHistoryDetail([]);
+    chatService.setActiveHistorySession("");
     chatService.setNewConversation(createChatSession());
   }
 };

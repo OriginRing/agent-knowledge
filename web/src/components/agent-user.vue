@@ -1,6 +1,10 @@
 <template>
   <div class="agent-user">
-    <a-dropdown placement="topLeft" trigger="click">
+    <a-dropdown
+      placement="topLeft"
+      trigger="click"
+      overlay-class-name="app-user-menu"
+    >
       <template #overlay>
         <a-menu>
           <a-menu-item @click="openProfile">
@@ -17,20 +21,18 @@
                 <SkinOutlined />
                 主题
               </span>
-              <a-flex align="center" gap="middle">
-                <a-switch
-                  v-model:checked="themeSwitch"
-                  size="small"
-                  @change="changeTheme"
-                >
-                  <template #checkedChildren>
-                    <Iconfont type="icon-sunyardsun" />
-                  </template>
-                  <template #unCheckedChildren>
-                    <Iconfont type="icon-sunyarddark" />
-                  </template>
-                </a-switch>
-              </a-flex>
+              <a-switch
+                v-model:checked="themeSwitch"
+                size="small"
+                @change="changeTheme"
+              >
+                <template #checkedChildren>
+                  <Iconfont type="icon-sunyardsun" />
+                </template>
+                <template #unCheckedChildren>
+                  <Iconfont type="icon-sunyarddark" />
+                </template>
+              </a-switch>
             </a-flex>
           </a-menu-item>
           <a-menu-item @click.stop="remove">
@@ -357,19 +359,35 @@ onMounted(() => {
   flex: 1;
   min-width: 0;
   min-height: 44px;
-  padding: 4px 8px;
-  border: 0;
+  padding: 5px 8px;
+  border: 1px solid transparent;
   display: flex;
   align-items: center;
   gap: 8px;
   overflow: hidden;
   color: inherit;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 15px;
   cursor: pointer;
+  transition:
+    color 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+
+  &:not(:disabled):hover {
+    border-color: var(--app-border-subtle);
+    color: var(--app-primary);
+    background: var(--app-primary-soft);
+  }
 
   &:disabled {
     cursor: default;
+    opacity: 0.68;
+  }
+
+  :deep(.ant-avatar) {
+    color: var(--app-primary);
+    background: var(--app-primary-soft);
   }
 }
 .user-name {
@@ -387,6 +405,33 @@ onMounted(() => {
 .memory-help {
   margin-left: 12px;
 }
+
+:deep(.ant-descriptions-view) {
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+:deep(.ant-input-number) {
+  min-height: 44px;
+  border-color: var(--app-border);
+  border-radius: var(--app-radius-control);
+  background: var(--app-surface-solid);
+}
+
+:global(.app-user-menu .ant-dropdown-menu) {
+  min-width: 210px;
+  padding: 8px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 18px;
+  background: var(--app-surface-solid);
+  box-shadow: var(--app-shadow-float);
+}
+
+:global(.app-user-menu .ant-dropdown-menu-item) {
+  min-height: 44px;
+  border-radius: 12px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0.01ms !important;

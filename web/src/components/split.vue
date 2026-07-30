@@ -300,21 +300,26 @@ onMounted(() => {
     .horizontal-trigger-panel {
       cursor: col-resize;
       height: 100%;
-      z-index: 999;
+      z-index: 90;
       .trigger-content-default-wrap {
-        background-color: var(--color-bg-layout);
+        background: transparent;
         height: 100%;
         position: relative;
-        width: 4px;
+        width: 8px;
         .trigger-content {
           position: absolute;
           top: 50%;
           transform: translateY(-50%);
+          padding: 8px 2px;
+          border-radius: var(--app-radius-pill);
+          background: var(--app-surface);
+          box-shadow: var(--app-shadow-soft);
           .trigger-bar {
             width: 4px;
-            height: 1px;
+            height: 2px;
             display: block;
-            background: rgba(23, 35, 61, 0.25);
+            border-radius: var(--app-radius-pill);
+            background: var(--app-primary);
             margin-top: 3px;
           }
         }
@@ -335,9 +340,9 @@ onMounted(() => {
       .trigger-content-default-wrap {
         width: 100%;
         position: relative;
-        height: 4px;
+        height: 8px;
         cursor: row-resize;
-        background-color: var(--color-bg-layout);
+        background: transparent;
         .trigger-content {
           position: absolute;
           left: 50%;
@@ -348,7 +353,8 @@ onMounted(() => {
             width: 1px;
             height: 100%;
             display: inline-block;
-            background: rgba(23, 35, 61, 0.25);
+            border-radius: var(--app-radius-pill);
+            background: var(--app-primary);
             margin-left: 3px;
             vertical-align: top;
           }

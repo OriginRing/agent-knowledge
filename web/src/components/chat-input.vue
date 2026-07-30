@@ -56,10 +56,10 @@
       </template>
       <template #footer="{ info: { components } }">
         <a-flex justify="space-between" align="center">
-          <a-flex gap="small" align="center">
+          <a-flex class="input-tools" gap="small" align="center">
             <template v-if="chatService.getAgentDetail?.supportFile">
               <a-dropdown placement="topLeft" trigger="click">
-                <a-button type="text">
+                <a-button type="text" aria-label="添加附件">
                   <template #icon>
                     <PaperClipOutlined />
                   </template>
@@ -92,14 +92,19 @@
               <a-divider type="vertical" />
             </template>
             <template v-if="chatService.getAgentDetail?.supportThink">
-              深度思考
-              <a-switch v-model:checked="thinking" size="small" />
+              <span class="tool-label">深度思考</span>
+              <a-switch
+                v-model:checked="thinking"
+                size="small"
+                aria-label="切换深度思考"
+              />
               <a-divider type="vertical" />
             </template>
             <template v-if="chatService.getAgentDetail?.supportKnowledge">
               <a-button
                 :type="knowledge ? 'link' : 'text'"
                 shape="circle"
+                aria-label="连接知识库"
                 @click="connectKnowledge"
               >
                 <ApiOutlined />
@@ -111,6 +116,7 @@
               v-if="chatService.getAgentDetail?.supportConnect"
               :type="internet ? 'link' : 'text'"
               shape="circle"
+              aria-label="连接互联网"
               @click="connectInternet"
             >
               <GlobalOutlined />
@@ -328,19 +334,102 @@ const handleFileBeforeUpload = async (
 
   .agent-input-tip {
     position: absolute;
-    bottom: 0px;
+    bottom: 0;
     font-size: 12px;
     left: 50%;
     transform: translateX(-50%);
-    color: var(--color-text-tertiary);
+    color: var(--app-text-tertiary);
+    white-space: nowrap;
+  }
+
+  :deep(.ant-sender) {
+    display: flex;
+    flex-direction: column;
+    min-height: 140px;
+    overflow: hidden;
+    border: 1px solid var(--app-border-subtle);
+    border-radius: 24px;
+    background: var(--app-surface-solid);
+    box-shadow: var(--app-shadow-soft);
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      transform 180ms ease;
+  }
+
+  :deep(.ant-sender:hover) {
+    border-color: rgba(113, 103, 232, 0.36);
+  }
+
+  :deep(.ant-sender-focused) {
+    border-color: var(--app-primary);
+    box-shadow: var(--app-focus), var(--app-shadow-soft);
+  }
+
+  :deep(.ant-sender-content) {
+    flex: 1;
+    padding-bottom: 0;
+
+    .ant-input {
+      border: none !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+  }
+
+  :deep(.ant-sender-footer) {
+    padding: 7px 10px 10px;
+    border-top: 0;
+    background: transparent;
+  }
+
+  :deep(.ant-sender-actions-btn) {
+    border: 1px solid rgba(113, 103, 232, 0.18) !important;
+    border-radius: 14px;
+    color: var(--app-primary) !important;
+    background: var(--app-primary-soft) !important;
+    box-shadow: none !important;
+
+    &:hover {
+      border-color: rgba(113, 103, 232, 0.3) !important;
+      color: var(--app-primary-hover) !important;
+      background: rgba(113, 103, 232, 0.14) !important;
+    }
   }
 }
+
+.input-tools {
+  min-width: 0;
+
+  :deep(.ant-btn) {
+    min-width: 38px;
+    min-height: 38px;
+    border-radius: var(--app-radius-pill);
+  }
+
+  :deep(.ant-btn-link) {
+    color: var(--app-primary);
+    background: transparent;
+  }
+
+  :deep(.ant-divider-vertical) {
+    margin-inline: 1px;
+  }
+}
+
+.tool-label {
+  color: var(--app-text-secondary);
+  font-size: 13px;
+  font-weight: 650;
+}
+
 .input-file {
   padding: 8px 8px 0;
   overflow: hidden;
 
   .input-file-scroll {
-    overflow: scroll;
+    overflow: auto;
   }
 
   .file-box-scroll {
@@ -370,20 +459,22 @@ const handleFileBeforeUpload = async (
 
   .file-box {
     position: relative;
-    padding: 8px;
-    background-color: var(--color-bg);
-    border-radius: 4px;
+    padding: 9px;
+    border: 1px solid var(--app-border-subtle);
+    background: var(--app-surface-soft);
+    border-radius: 16px;
     max-width: 200px;
     overflow: hidden;
 
     .close {
       position: absolute;
-      right: 2px;
-      top: 2px;
+      right: 4px;
+      top: 4px;
       font-size: 14px;
       height: 14px;
-      border-radius: 8px;
-      background-color: var(--color-bg-elevated);
+      border-radius: var(--app-radius-pill);
+      color: var(--app-danger);
+      background: var(--app-surface-solid);
     }
 
     :deep(.ant-image) {
@@ -418,6 +509,20 @@ const handleFileBeforeUpload = async (
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+  }
+}
+
+@media (max-width: 768px) {
+  .agent-input {
+    :deep(.ant-sender) {
+      min-height: 132px;
+      border-radius: 20px;
+    }
+  }
+
+  .tool-label,
+  .input-tools :deep(.ant-divider-vertical) {
+    display: none;
   }
 }
 </style>

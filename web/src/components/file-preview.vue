@@ -77,6 +77,7 @@ watchEffect(() => {
       type="text"
       shape="circle"
       size="small"
+      aria-label="关闭文件预览"
       @click="close"
     >
       <template #icon>
@@ -87,14 +88,32 @@ watchEffect(() => {
 </template>
 <style scoped lang="less">
 .file-preview {
-  width: 100%;
-  height: 100%;
+  width: calc(100% - 14px);
+  height: calc(100% - 28px);
+  margin: 14px 14px 14px 0;
   position: relative;
+  overflow: hidden;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-shell);
+  background: var(--app-surface-solid);
+  box-shadow: var(--app-shadow-soft);
 
   .close {
     position: absolute;
-    top: 12px;
+    top: 4px;
     right: 8px;
+    z-index: 10;
+    border: 1px solid var(--app-border-subtle);
+    background: var(--app-surface);
+  }
+}
+
+@media (max-width: 768px) {
+  .file-preview {
+    width: calc(100% - 16px);
+    height: calc(100% - 16px);
+    margin: 8px;
+    border-radius: 20px;
   }
 }
 </style>

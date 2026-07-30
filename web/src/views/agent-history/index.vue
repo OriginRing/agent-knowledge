@@ -1,5 +1,12 @@
 <template>
   <div class="agent-history">
+    <header class="page-header">
+      <div>
+        <span class="page-eyebrow">CONVERSATION ARCHIVE</span>
+        <h2>管理对话</h2>
+        <p>回到过去的灵感片段，或整理不再需要的会话。</p>
+      </div>
+    </header>
     <div class="agent-history-list">
       <a-list :locale="{ emptyText: '暂无数据' }">
         <a-list-item
@@ -12,6 +19,7 @@
               danger
               type="text"
               size="small"
+              aria-label="删除对话"
               @click="deleteHistory(item.id as string, $event)"
             >
               <DeleteOutlined />
@@ -73,6 +81,7 @@ const selectHistory = async (key: string) => {
   });
   if (res.code === 0) {
     const history = res.data;
+    chatService.setActiveHistorySession(history.session_id);
     chatService.setNewConversation(history.session_id);
     chatService.setAgentHistoryDetail(history.records);
     await router.push("/");
@@ -109,15 +118,67 @@ onMounted(() => {
 </script>
 <style scoped lang="less">
 .agent-history {
-  border-right: 1px solid var(--color-bg-border);
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 0 8px;
+  padding: 24px 28px 18px;
   overflow: hidden;
+  color: var(--app-text);
 
   .agent-history-list {
-    overflow: scroll;
+    min-height: 0;
+    padding: 4px;
+    overflow: auto;
+  }
+}
+
+.page-header {
+  padding: 6px 4px 22px;
+
+  h2 {
+    margin-top: 3px;
+    color: var(--app-text);
+    font-size: clamp(24px, 3vw, 32px);
+    line-height: 1.25;
+    letter-spacing: -0.035em;
+  }
+
+  p {
+    margin-top: 7px;
+    color: var(--app-text-secondary);
+    font-size: 14px;
+  }
+}
+
+.page-eyebrow {
+  color: var(--app-peach);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.ant-list-item {
+  min-height: 76px;
+  margin-bottom: 10px;
+  padding: 12px 16px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-card);
+  background: var(--app-surface-solid);
+  box-shadow: var(--app-shadow-soft);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+
+  &:hover {
+    border-color: rgba(113, 103, 232, 0.28);
+    box-shadow: var(--app-shadow-hover);
+    transform: translateY(-2px);
+  }
+
+  :deep(.ant-avatar) {
+    color: var(--app-primary);
+    background: var(--app-primary-soft);
   }
 }
 
@@ -149,6 +210,7 @@ onMounted(() => {
 
   .date {
     flex: 0 0 130px;
+    color: var(--app-text-tertiary);
     font-size: 12px;
     font-weight: 400;
   }
@@ -156,5 +218,23 @@ onMounted(() => {
 
 :deep(.ant-list-item-action) {
   margin-left: 16px !important;
+}
+
+@media (max-width: 768px) {
+  .agent-history {
+    padding: 18px 14px 12px;
+  }
+
+  .page-header {
+    padding-bottom: 18px;
+  }
+
+  .history-title .date {
+    display: none;
+  }
+
+  .ant-list-item {
+    padding: 11px 12px;
+  }
 }
 </style>

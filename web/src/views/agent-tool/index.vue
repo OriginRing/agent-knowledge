@@ -7,7 +7,21 @@
     }"
   >
     <div class="agent-header">
-      <h1 class="log" @click="newConversation">Ollama</h1>
+      <button
+        class="mobile-close"
+        type="button"
+        aria-label="关闭侧栏"
+        @click="chatService.setAgentTool(false)"
+      >
+        <CloseOutlined />
+      </button>
+      <button class="brand-button" type="button" @click="newConversation">
+        <span class="brand-mark"><MessageOutlined /></span>
+        <span>
+          <strong>Ollama</strong>
+          <small>知识伙伴</small>
+        </span>
+      </button>
     </div>
     <div class="agent-action">
       <AgentKnowledge />
@@ -22,6 +36,15 @@
         <a-list-item
           v-for="item in historyList"
           :key="item.id"
+          :class="{
+            'history-item-active':
+              item.session_id === chatService.getActiveHistorySessionId,
+          }"
+          :aria-current="
+            item.session_id === chatService.getActiveHistorySessionId
+              ? 'true'
+              : undefined
+          "
           @click="selectHistory(item.id as string)"
         >
           <MessageOutlined />
@@ -36,11 +59,10 @@
 </template>
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
-import { MessageOutlined } from "@ant-design/icons-vue";
+import { CloseOutlined, MessageOutlined } from "@ant-design/icons-vue";
 import { theme } from "ant-design-vue";
 import AgentUser from "@view/components/agent-user.vue";
 import AgentKnowledge from "@view/components/agent-knowledge.vue";
-import { debounce } from "lodash-es";
 import { useChatStore } from "@view/stores/chat";
 import type { HistoryInterface } from "@view/interfaces/history-interface";
 import { createChatSession } from "@view/utils/random";
@@ -71,36 +93,42 @@ const selectHistory = async (key: string) => {
   });
   if (res.code === 0) {
     const history = res.data;
+    chatService.setActiveHistorySession(history.session_id);
     chatService.setNewConversation(history.session_id);
     chatService.setAgentHistoryDetail(history.records);
+    if (router.currentRoute.value.path !== "/") {
+      await router.push("/");
+    }
   } else {
     chatService.setAgentHistoryDetail([]);
   }
 };
-
-const debouncedGetHistory = debounce(getAgentHistoryList, 1000, {
-  leading: true,
-  trailing: false,
-});
 
 const newConversation = () => {
   if (router.currentRoute.value.path !== "/") {
     router.push("/");
   }
   chatService.setAgentHistoryDetail([]);
-  chatService.setNewConversation(createChatSession());
+  const nextSessionId = createChatSession();
+  chatService.setActiveHistorySession("");
+  chatService.setNewConversation(nextSessionId);
 };
 
 watch(
-  [
-    () => chatService.getAgentDetail?.agentCode,
-    () => chatService.getNewConversation,
-  ],
+  () => chatService.getAgentDetail?.agentCode,
   () => {
     if (!chatService.getAgentDetail?.agentCode) return;
-    debouncedGetHistory();
+    getAgentHistoryList();
   },
   { flush: "sync" },
+);
+
+watch(
+  () => chatService.getHistoryRefreshVersion,
+  () => {
+    if (!chatService.getAgentDetail?.agentCode) return;
+    getAgentHistoryList();
+  },
 );
 
 onMounted(() => {
@@ -111,35 +139,110 @@ onMounted(() => {
 </script>
 <style scoped lang="less">
 .agent-tool {
-  border-right: 1px solid var(--color-bg-border);
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 0 8px;
+  padding: 10px;
   overflow: hidden;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-shell);
+  color: var(--app-text);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow-soft);
+}
+
+.mobile-close {
+  display: none;
 }
 
 .agent-header {
-  height: 64px;
-  flex: 0 0 64px;
+  min-height: 70px;
+  flex: 0 0 70px;
   display: flex;
   align-items: center;
-  justify-content: center;
+}
+
+.brand-button {
+  width: 100%;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 16px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
   cursor: pointer;
+  transition:
+    background 180ms ease,
+    transform 180ms ease;
+
+  &:hover {
+    background: var(--app-primary-soft);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  > span:last-child {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    line-height: 1.25;
+  }
+
+  strong {
+    color: var(--app-text);
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+
+  small {
+    margin-top: 2px;
+    color: var(--app-text-tertiary);
+    font-size: 11px;
+  }
+}
+
+.brand-mark {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 13px 13px 13px 6px;
+  color: #fff;
+  background: linear-gradient(145deg, var(--app-primary), #9288f5);
+  box-shadow: 0 4px 10px rgba(113, 103, 232, 0.2);
 }
 
 .agent-history-list {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  margin-top: 8px;
 }
 
 .history-list-title {
-  padding: 0 8px;
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: var(--app-radius-pill);
+  color: var(--app-text-secondary);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 750;
   cursor: pointer;
-  color: inherit;
+
+  &:hover,
+  &.router-link-active {
+    color: var(--app-primary);
+    background: var(--app-primary-soft);
+  }
 }
 
 .ant-list {
@@ -148,31 +251,78 @@ onMounted(() => {
 }
 
 :deep(.ant-list-header) {
+  padding: 8px 0 4px;
   border: none;
 }
 
 :deep(.ant-spin-nested-loading) {
   height: calc(100% - 47px);
-  overflow: scroll;
+  overflow: auto;
 }
 
 .ant-list-item {
   border: none;
-  padding: 8px 8px;
+  min-height: 42px;
+  gap: 8px;
+  margin: 2px 0;
+  padding: 8px 10px;
+  border-radius: 13px;
+  color: var(--app-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+  transition:
+    color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
 
   &:hover {
-    background-color: var(--color-bg-layout);
-    border-radius: 8px;
+    color: var(--app-primary);
+    background: var(--app-primary-soft);
+    transform: translateX(2px);
+  }
+
+  &.history-item-active {
+    color: var(--app-primary);
+    font-weight: 720;
+    background: var(--app-primary-soft);
+    box-shadow: inset 3px 0 0 var(--app-primary);
   }
 }
 
 .agent-tool-user {
-  border-block-start: 1px solid var(--color-bg-border);
-  height: 64px;
+  min-height: 64px;
   flex: 0 0 64px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-block-start: 1px solid var(--app-border-subtle);
+}
+
+@media (max-width: 768px) {
+  .mobile-close {
+    position: absolute;
+    z-index: 3;
+    top: 12px;
+    right: 12px;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    padding: 0;
+    place-items: center;
+    border: 1px solid var(--app-border-subtle);
+    border-radius: var(--app-radius-pill);
+    color: var(--app-text-secondary);
+    background: var(--app-surface-soft);
+    cursor: pointer;
+
+    &:active {
+      transform: scale(0.96);
+    }
+  }
+
+  .brand-button {
+    padding-right: 52px;
+  }
 }
 </style>

@@ -1,22 +1,27 @@
 <template>
   <a-flex class="memory-page" vertical>
-    <a-flex justify="space-between">
-      <a-button type="primary" @click="openMemory()">新增记忆</a-button>
-      <a-flex justify="flex-end" gap="small">
+    <header class="page-header">
+      <div>
+        <span class="page-eyebrow">PERSONAL MEMORY</span>
+        <h2>个人记忆</h2>
+        <p>整理重要偏好与长期信息，让每一次对话都更懂你。</p>
+      </div>
+      <div class="page-actions">
+        <a-button type="primary" @click="openMemory()">新增记忆</a-button>
         <a-input-search
           v-model:value="value"
           placeholder="记忆检索"
           :loading="loading"
-          style="width: 250px"
+          class="page-search"
           @search="onSearch"
         />
-        <a-button @click="clearFilter">
+        <a-button aria-label="清除筛选" @click="clearFilter">
           <template #icon>
             <ClearOutlined />
           </template>
         </a-button>
-      </a-flex>
-    </a-flex>
+      </div>
+    </header>
 
     <div class="memory-list">
       <a-flex v-if="memoryList.length" vertical gap="12">
@@ -30,6 +35,7 @@
                 <a-button
                   size="small"
                   type="link"
+                  aria-label="编辑记忆"
                   @click="openMemory(item.conversation_id)"
                 >
                   <template #icon>
@@ -40,6 +46,7 @@
                   size="small"
                   type="link"
                   danger
+                  aria-label="删除记忆"
                   @click="deleteMemory(item.id)"
                 >
                   <template #icon>
@@ -242,15 +249,67 @@ onMounted(() => {
 .memory-page {
   width: 100%;
   height: 100%;
-  padding: 8px;
+  padding: 24px 28px 18px;
+  color: var(--app-text);
 }
+
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 6px 4px 22px;
+
+  h2 {
+    margin-top: 3px;
+    color: var(--app-text);
+    font-size: clamp(24px, 3vw, 32px);
+    line-height: 1.25;
+    letter-spacing: -0.035em;
+  }
+
+  p {
+    margin-top: 7px;
+    color: var(--app-text-secondary);
+    font-size: 14px;
+  }
+}
+
+.page-eyebrow {
+  color: var(--app-mint);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-search {
+  width: 260px;
+
+  :deep(.ant-input-group-addon .ant-btn) {
+    min-width: 46px;
+    border-radius: 0 14px 14px 0;
+  }
+}
+
 .memory-list {
   flex: 1;
-  margin: 8px 0;
-  overflow: scroll;
+  min-height: 0;
+  padding: 4px;
+  overflow: auto;
 
   .ant-empty {
-    margin-top: 120px;
+    margin-top: 100px;
+  }
+
+  :deep(.ant-card-body) {
+    color: var(--app-text-secondary);
+    line-height: 1.7;
   }
 }
 
@@ -260,9 +319,43 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--app-text);
+  font-weight: 720;
 }
 
 .memory-textarea {
   margin: 24px 0;
+}
+
+@media (max-width: 900px) {
+  .page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page-actions {
+    flex-wrap: wrap;
+  }
+
+  .page-search {
+    min-width: 210px;
+    flex: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .memory-page {
+    padding: 18px 14px 12px;
+  }
+
+  .page-header {
+    padding-bottom: 18px;
+  }
+
+  .page-actions {
+    > :deep(.ant-btn-primary) {
+      flex: 1 0 100%;
+    }
+  }
 }
 </style>

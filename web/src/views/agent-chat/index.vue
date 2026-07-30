@@ -44,12 +44,18 @@
             />
           </template>
           <template #message="{ item }">
-            <p v-if="item.role !== 'assistant'" class="chat-content">
+            <p
+              v-if="item.role !== 'assistant'"
+              :class="[
+                'chat-content',
+                item.role === 'user' ? 'user-message' : 'system-message',
+              ]"
+            >
               {{ item.content }}
             </p>
             <a-typography v-else :id="item.key">
               <div
-                class="chat-content markdown-body"
+                class="chat-content markdown-body assistant-message"
                 v-html="renderMarkdown(item.content)"
               ></div>
             </a-typography>
@@ -67,19 +73,41 @@
                   {{ knowledgeLength(item?.knowledge) }} 篇资料
                 </a-button>
               </a-flex>
-              <a-flex v-if="item.role !== 'system'" align="center" gap="middle">
-                <CopyOutlined @click="copyToClipboard(item.content)" />
-                <SyncOutlined
+              <a-flex
+                v-if="item.role !== 'system'"
+                class="message-actions"
+                align="center"
+                gap="small"
+              >
+                <a-button
+                  type="text"
+                  size="small"
+                  aria-label="复制消息"
+                  @click="copyToClipboard(item.content)"
+                >
+                  <CopyOutlined />
+                </a-button>
+                <a-button
                   v-if="item.role === 'assistant' && getLastChat(item.key)"
+                  type="text"
+                  size="small"
+                  aria-label="重新生成"
                   @click="regenerateChat(item)"
-                />
-                <DownloadOutlined
+                >
+                  <SyncOutlined />
+                </a-button>
+                <a-button
                   v-if="
                     item.role === 'assistant' &&
                     chatService.getAgentDetail?.supportDownload
                   "
+                  type="text"
+                  size="small"
+                  aria-label="下载回答"
                   @click="downloadChat(item.key)"
-                />
+                >
+                  <DownloadOutlined />
+                </a-button>
               </a-flex>
             </a-flex>
           </template>
@@ -347,6 +375,12 @@ const sendMessage = async (
       answer.value[answer.value.length - 1].status === "error"
         ? "error"
         : "complete";
+    if (
+      answer.value[answer.value.length - 1].status === "complete" &&
+      sessionId.value
+    ) {
+      chatService.refreshHistory(sessionId.value);
+    }
   } catch (err) {
     answer.value[answer.value.length - 1].thinking = false;
     answer.value[answer.value.length - 1].loading = false;
@@ -385,7 +419,7 @@ onMounted(() => {
   flex: 1;
   overflow: hidden;
   height: 100%;
-  padding: 0 48px 24px;
+  padding: 0 36px 20px;
 
   .agent-content {
     flex: 1;
@@ -393,28 +427,48 @@ onMounted(() => {
     overflow: hidden;
 
     .chat {
-      padding: 12px 0;
+      padding: 18px 4px 10px;
       height: 100%;
       overflow: hidden;
     }
 
     :deep(.ant-bubble-list) {
       height: 100%;
-      scrollbar-width: none; /* Firefox */
-      -ms-overflow-style: none; /* IE */
+      padding-inline: 4px;
     }
 
     :deep(.ant-bubble-content) {
       padding: 0;
+      border: 0;
+      border-radius: 20px;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    :deep(.ant-bubble-end .ant-bubble-content) {
+      overflow: hidden;
+      border-radius: 20px 20px 7px 20px;
+      color: #fff;
+      background: linear-gradient(145deg, var(--app-primary), #8e83f2);
+      box-shadow: 0 4px 12px rgba(113, 103, 232, 0.18);
+    }
+
+    :deep(.ant-bubble-start .ant-bubble-content-filled) {
+      border: 1px solid var(--app-border-subtle);
+      border-radius: 20px 20px 20px 7px;
+      color: var(--app-text);
+      background: var(--app-surface-solid);
+      box-shadow: var(--app-shadow-soft);
     }
 
     :deep(.ant-bubble-dot) {
       padding: 12px 16px;
+      color: var(--app-primary);
     }
   }
 
   .agent-input {
-    flex: 0 0 190px;
+    flex: 0 0 200px;
     position: relative;
 
     .send {
@@ -427,13 +481,23 @@ onMounted(() => {
 
 .file-box {
   position: relative;
-  padding: 8px;
-  background-color: var(--color-bg);
-  border-radius: 4px;
+  padding: 10px;
+  border: 1px solid var(--app-border-subtle);
+  background: var(--app-surface-soft);
+  border-radius: 16px;
   max-width: 180px;
   min-width: 160px;
   overflow: hidden;
   cursor: pointer;
+  box-shadow: var(--app-shadow-soft);
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease;
+
+  &:hover {
+    border-color: var(--app-primary);
+    transform: translateY(-1px);
+  }
 
   :deep(.ant-image) {
     flex: 0 0 50px;
@@ -480,11 +544,46 @@ onMounted(() => {
 }
 
 .chat-content {
-  padding: 12px 16px;
+  padding: 13px 17px;
   height: 100%;
+  line-height: 1.65;
+}
+
+.assistant-message {
+  min-width: min(560px, 62vw);
+  color: var(--app-text);
+  background: var(--app-surface-solid);
+}
+
+.user-message {
+  color: #fff;
+}
+
+.system-message {
+  color: var(--app-text-secondary);
+  background: var(--app-mint-soft);
+}
+
+.message-actions {
+  opacity: 0.68;
+  transition: opacity 180ms ease;
+
+  &:hover,
+  &:focus-within {
+    opacity: 1;
+  }
+
+  :deep(.ant-btn) {
+    min-width: 36px;
+    min-height: 36px;
+    color: var(--app-text-tertiary);
+  }
 }
 
 .markdown-body {
+  color: var(--app-text);
+  background: transparent;
+
   :deep(thead) {
     th {
       white-space: nowrap;
@@ -494,11 +593,15 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .agent-chat {
-    padding: 0 12px 12px;
+    padding: 0 10px 10px;
 
     .agent-input {
-      flex-basis: 170px;
+      flex-basis: 174px;
     }
+  }
+
+  .assistant-message {
+    min-width: 0;
   }
 }
 </style>

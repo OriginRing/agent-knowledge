@@ -1,10 +1,16 @@
 <template>
   <FilePreview v-if="file" :file="file" @close="closeFilePreview" />
   <div v-else class="knowledge-menu">
+    <header class="preview-heading">
+      <span>REFERENCE</span>
+      <h2>参考资料</h2>
+      <p>查看本次回答引用的知识片段。</p>
+    </header>
     <a-button
       class="file-preview-close"
       type="text"
       shape="circle"
+      aria-label="关闭资料预览"
       @click="closePreview"
     >
       <template #icon>
@@ -119,15 +125,22 @@ watchEffect(() => {
 </script>
 <style lang="less" scoped>
 .knowledge-menu {
-  padding: 20px 20px 0;
+  margin: 14px 14px 14px 0;
+  padding: 24px 20px 16px;
   position: relative;
-  height: 100%;
+  height: calc(100% - 28px);
   overflow: hidden;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-shell);
+  color: var(--app-text);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow-soft);
 
   .file-list {
     width: 100%;
-    height: 100%;
-    overflow-y: scroll;
+    height: calc(100% - 94px);
+    padding: 4px;
+    overflow-y: auto;
   }
   .file-preview-close {
     position: absolute;
@@ -137,8 +150,43 @@ watchEffect(() => {
   }
 }
 
+.preview-heading {
+  padding: 2px 4px 18px;
+
+  span {
+    color: var(--app-mint);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+  }
+
+  h2 {
+    margin-top: 2px;
+    color: var(--app-text);
+    font-size: 24px;
+    letter-spacing: -0.03em;
+  }
+
+  p {
+    margin-top: 5px;
+    color: var(--app-text-secondary);
+    font-size: 13px;
+  }
+}
+
 .card-content {
   max-height: 150px;
-  overflow-y: scroll;
+  overflow-y: auto;
+  color: var(--app-text-secondary);
+  line-height: 1.65;
+}
+
+@media (max-width: 768px) {
+  .knowledge-menu {
+    margin: 8px;
+    height: calc(100% - 16px);
+    padding: 20px 14px 12px;
+    border-radius: 20px;
+  }
 }
 </style>

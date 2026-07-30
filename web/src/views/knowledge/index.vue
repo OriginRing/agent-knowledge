@@ -1,14 +1,19 @@
 <template>
   <a-flex class="knowledge-page" vertical>
-    <a-flex justify="flex-end">
+    <header class="page-header">
+      <div>
+        <span class="page-eyebrow">KNOWLEDGE SPACE</span>
+        <h2>知识库检索</h2>
+        <p>从已上传的资料中，快速找到与你的问题最相关的内容。</p>
+      </div>
       <a-input-search
         v-model:value="value"
         placeholder="知识库检索"
         :loading="loading"
-        style="width: 250px"
+        class="page-search"
         @search="onSearch"
       />
-    </a-flex>
+    </header>
 
     <div class="knowledge-list">
       <a-flex v-if="knowledgeList.length" vertical gap="12">
@@ -99,15 +104,61 @@ const previewFile = async (name: string, url: string) => {
 .knowledge-page {
   width: 100%;
   height: 100%;
-  padding: 8px;
+  padding: 24px 28px 18px;
+  color: var(--app-text);
 }
+
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 6px 4px 22px;
+
+  h2 {
+    margin-top: 3px;
+    color: var(--app-text);
+    font-size: clamp(24px, 3vw, 32px);
+    line-height: 1.25;
+    letter-spacing: -0.035em;
+  }
+
+  p {
+    margin-top: 7px;
+    color: var(--app-text-secondary);
+    font-size: 14px;
+  }
+}
+
+.page-eyebrow {
+  color: var(--app-primary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.page-search {
+  width: min(300px, 100%);
+
+  :deep(.ant-input-group-addon .ant-btn) {
+    min-width: 46px;
+    border-radius: 0 14px 14px 0;
+  }
+}
+
 .knowledge-list {
   flex: 1;
-  margin: 8px 0;
-  overflow: scroll;
+  min-height: 0;
+  padding: 4px;
+  overflow: auto;
 
   .ant-empty {
-    margin-top: 120px;
+    margin-top: 100px;
+  }
+
+  :deep(.ant-card-body) {
+    color: var(--app-text-secondary);
+    line-height: 1.7;
   }
 }
 
@@ -117,5 +168,24 @@ const previewFile = async (name: string, url: string) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--app-primary);
+  font-weight: 720;
+}
+
+@media (max-width: 768px) {
+  .knowledge-page {
+    padding: 18px 14px 12px;
+  }
+
+  .page-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 18px;
+  }
+
+  .page-search {
+    width: 100%;
+  }
 }
 </style>

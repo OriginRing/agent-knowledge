@@ -6,14 +6,27 @@
         v-if="historyView"
         class="menu"
         type="text"
+        aria-label="收起侧栏"
         @click="historyHandle(false)"
       >
         <MenuFoldOutlined />
       </a-button>
-      <a-button v-else type="text" class="menu" @click="historyHandle(true)">
+      <a-button
+        v-else
+        type="text"
+        class="menu"
+        aria-label="展开侧栏"
+        @click="historyHandle(true)"
+      >
         <MenuUnfoldOutlined />
       </a-button>
-      <a-button type="default" shape="round" @click="newConversation">
+      <a-button
+        class="new-chat"
+        type="default"
+        shape="round"
+        aria-label="新建对话"
+        @click="newConversation"
+      >
         <template #icon>
           <FormOutlined />
         </template>
@@ -78,7 +91,9 @@ const newConversation = () => {
     router.push("/");
   }
   chatService.setAgentHistoryDetail([]);
-  chatService.setNewConversation(createChatSession());
+  const nextSessionId = createChatSession();
+  chatService.setActiveHistorySession("");
+  chatService.setNewConversation(nextSessionId);
 };
 
 const getAgentList = async () => {
@@ -120,6 +135,7 @@ onMounted(() => {
   align-items: center;
   position: relative;
   justify-content: space-between;
+  color: var(--app-text);
 
   .log {
     font-weight: 600;
@@ -127,12 +143,24 @@ onMounted(() => {
   }
 
   .menu {
-    position: absolute;
-    z-index: 99;
-    left: -60px;
+    position: static;
+    z-index: 1;
 
     &:hover {
-      background-color: transparent;
+      background-color: var(--app-primary-soft);
+    }
+  }
+
+  .new-chat {
+    border-color: var(--app-border-subtle);
+    background: var(--app-surface-soft);
+  }
+
+  :deep(.ant-select) {
+    .ant-select-selector {
+      border: 0 !important;
+      border-radius: var(--app-radius-pill) !important;
+      background: var(--app-surface-soft) !important;
     }
   }
 
@@ -142,6 +170,9 @@ onMounted(() => {
 
     h3 {
       width: 100%;
+      color: var(--app-text);
+      font-size: 15px;
+      font-weight: 720;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -157,6 +188,14 @@ onMounted(() => {
 
     .menu {
       position: static;
+    }
+
+    :deep(.ant-flex:first-child) {
+      gap: 8px !important;
+    }
+
+    :deep(.ant-select) {
+      width: 104px !important;
     }
 
     .chat-title {

@@ -8,7 +8,6 @@ import { RenderRule } from "markdown-it/dist/index.cjs";
 export class GPTVisElement extends HTMLElement {
   connectedCallback() {
     const syntax = decodeURIComponent(<string>this.dataset.syntax);
-    console.log(111);
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     this._instance = new GPTVis({

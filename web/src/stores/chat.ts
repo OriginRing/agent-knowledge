@@ -17,6 +17,8 @@ interface AgentChat {
   agentPreview: boolean;
   agentPreviewFiles: KnowledgeDoc[];
   agentPreviewFile: File | null;
+  historyRefreshVersion: number;
+  activeHistorySessionId: string;
 }
 
 export const useChatStore = defineStore("chatPiniaService", {
@@ -31,6 +33,8 @@ export const useChatStore = defineStore("chatPiniaService", {
     agentPreview: false,
     agentPreviewFiles: [],
     agentPreviewFile: null,
+    historyRefreshVersion: 0,
+    activeHistorySessionId: "",
   }),
 
   getters: {
@@ -44,6 +48,9 @@ export const useChatStore = defineStore("chatPiniaService", {
     getAgentPreview: (state: AgentChat) => state.agentPreview,
     getAgentPreviewFiles: (state: AgentChat) => state.agentPreviewFiles,
     getAgentPreviewFile: (state: AgentChat) => state.agentPreviewFile,
+    getHistoryRefreshVersion: (state: AgentChat) => state.historyRefreshVersion,
+    getActiveHistorySessionId: (state: AgentChat) =>
+      state.activeHistorySessionId,
   },
 
   actions: {
@@ -77,6 +84,13 @@ export const useChatStore = defineStore("chatPiniaService", {
     setAgentPreviewFile(file: File | null) {
       this.agentPreviewFile = file;
     },
+    setActiveHistorySession(sessionId: string) {
+      this.activeHistorySessionId = sessionId;
+    },
+    refreshHistory(sessionId: string) {
+      this.activeHistorySessionId = sessionId;
+      this.historyRefreshVersion += 1;
+    },
   },
 });
 
@@ -89,4 +103,5 @@ export const clearChatStore = () => {
   useChatStore().setAgentPreview(false);
   useChatStore().setAgentPreviewFiles([]);
   useChatStore().setAgentPreviewFile(null);
+  useChatStore().setActiveHistorySession("");
 };

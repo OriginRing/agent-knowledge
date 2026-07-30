@@ -391,8 +391,10 @@ const items = computed<ThoughtChainItem[]>(() =>
 .thought-chain-shell {
   width: min(760px, 100%);
   overflow: hidden;
-  border-radius: 12px;
-  background: transparent;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 18px;
+  background: var(--app-surface-soft);
+  box-shadow: 0 4px 12px rgba(74, 65, 135, 0.06);
 }
 
 .thought-chain-summary {
@@ -431,6 +433,8 @@ const items = computed<ThoughtChainItem[]>(() =>
   min-height: 52px;
   align-items: center;
   padding: 8px 16px;
+  color: var(--app-text-secondary);
+  border-radius: 18px;
 }
 
 :deep(.thought-chain-shell .ant-collapse-content-box) {
@@ -443,7 +447,10 @@ const items = computed<ThoughtChainItem[]>(() =>
 
 :deep(.generated-file) {
   min-width: 0;
-  padding: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 14px;
+  background: var(--app-surface-solid);
 }
 
 :deep(.generated-file-main),
@@ -486,8 +493,8 @@ const items = computed<ThoughtChainItem[]>(() =>
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  border-radius: 8px;
-  background: var(--color-bg);
+  border-radius: 14px;
+  background: var(--app-surface-mint);
   font: inherit;
   line-height: 1.6;
 }

@@ -14,12 +14,16 @@
       </a-flex>
     </a-list-item>
     <a-list-item key="1" @click="() => (open = true)">
-      <UploadOutlined />
-      上传知识库
+      <span>
+        <UploadOutlined />
+        上传知识库
+      </span>
     </a-list-item>
     <a-list-item key="2" @click="clearKnowledge">
-      <ClearOutlined />
-      清除知识库
+      <span>
+        <ClearOutlined />
+        清除知识库
+      </span>
     </a-list-item>
     <a-list-item key="3">
       <router-link class="knowledge" to="/knowledge">
@@ -211,21 +215,36 @@ const newConversation = () => {
     router.push("/");
   }
   chatService.setAgentHistoryDetail([]);
-  chatService.setNewConversation(createChatSession());
+  const nextSessionId = createChatSession();
+  chatService.setActiveHistorySession("");
+  chatService.setNewConversation(nextSessionId);
 };
 </script>
 <style scoped lang="less">
+:deep(.ant-list) {
+  display: grid;
+  gap: 3px;
+}
+
 .ant-list-item {
   border: none;
-  padding: 8px 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 13px;
+  color: var(--app-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+  transition:
+    color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
 
   &:hover {
-    background-color: var(--color-bg-layout);
-    border-radius: 8px;
+    color: var(--app-primary);
+    background: var(--app-primary-soft);
+    transform: translateX(2px);
   }
 
   span {
@@ -234,8 +253,32 @@ const newConversation = () => {
 
   .knowledge,
   .memory {
+    width: 100%;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     cursor: pointer;
     color: inherit;
+
+    &.router-link-active {
+      color: var(--app-primary);
+      font-weight: 700;
+    }
+  }
+
+  :deep(.ant-flex) {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  kbd {
+    padding: 2px 7px;
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+    color: var(--app-text-tertiary);
+    font: 11px/1.5 var(--mono);
+    background: var(--app-surface-soft);
   }
 }
 </style>

@@ -1,11 +1,12 @@
 import base64
 import io
-import os
 import time
 from typing import Optional
 
 from openai import OpenAI
 from PIL import Image, ImageOps
+
+from config.env_config import get_float_env, get_int_env, get_required_env
 
 
 class OCRService:
@@ -14,17 +15,10 @@ class OCRService:
     @classmethod
     def get_client(cls):
         if cls._client is None:
-            api_key = os.getenv("QWEN_API_KEY")
-            if not api_key:
-                raise ValueError("QWEN_API_KEY 未配置")
-
             cls._client = OpenAI(
-                api_key=api_key,
-                base_url=os.getenv(
-                    "QWEN_OCR_BASE_URL",
-                    "https://ws-llqm293c458947bs.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
-                ),
-                timeout=float(os.getenv("OCR_TIMEOUT_SECONDS", "45")),
+                api_key=get_required_env("QWEN_API_KEY"),
+                base_url=get_required_env("QWEN_OCR_BASE_URL"),
+                timeout=get_float_env("OCR_TIMEOUT_SECONDS"),
             )
         return cls._client
 
@@ -33,8 +27,8 @@ class OCRService:
         if not content:
             raise ValueError("图片内容为空")
 
-        max_dimension = int(os.getenv("OCR_MAX_IMAGE_DIMENSION", "2400"))
-        jpeg_quality = int(os.getenv("OCR_JPEG_QUALITY", "88"))
+        max_dimension = get_int_env("OCR_MAX_IMAGE_DIMENSION")
+        jpeg_quality = get_int_env("OCR_JPEG_QUALITY")
         with Image.open(io.BytesIO(content)) as image:
             image = ImageOps.exif_transpose(image)
             if max(image.size) > max_dimension:
@@ -53,12 +47,12 @@ class OCRService:
 
     @classmethod
     def _recognize(cls, image_url: str, prompt: Optional[str] = None) -> str:
-        retries = max(int(os.getenv("OCR_MAX_RETRIES", "1")), 0)
+        retries = max(get_int_env("OCR_MAX_RETRIES"), 0)
         last_error: Optional[Exception] = None
         for attempt in range(retries + 1):
             try:
                 completion = cls.get_client().chat.completions.create(
-                    model=os.getenv("QWEN_OCR_MODEL", "qwen3.5-ocr"),
+                    model=get_required_env("QWEN_OCR_MODEL"),
                     messages=[
                         {
                             "role": "user",

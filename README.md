@@ -128,6 +128,19 @@ MEMOS_BASE_URL=https://memos.memtensor.cn/api/openmem/v1
 
 # 模型最大输出长度
 MAX_TOKENS=8192
+
+# OCR
+QWEN_OCR_BASE_URL=https://your-ocr-compatible-api.example.com/v1
+QWEN_OCR_MODEL=qwen3.5-ocr
+OCR_TIMEOUT_SECONDS=45
+OCR_MAX_RETRIES=1
+OCR_MAX_IMAGE_DIMENSION=2400
+OCR_JPEG_QUALITY=88
+PDF_OCR_MIN_TEXT_CHARS=20
+PDF_OCR_DPI=180
+
+# 知识库
+KNOWLEDGE_EMBEDDING_MODEL=qwen3-embedding:4b
 ```
 
 启动后端：
@@ -156,11 +169,13 @@ npm run dev
 VITE_API_BASE_URL=https://your-api.example.com
 ```
 
-## 可选配置
+## 配置项
 
-| 变量 | 默认值 | 用途 |
+OCR 与知识库相关变量为必填配置；其他变量可按实际启用的功能调整。
+
+| 变量 | 示例值 | 用途 |
 | --- | --- | --- |
-| `MAX_TOKENS` | `4096` | 模型最大输出 token 数 |
+| `MAX_TOKENS` | `8192` | 模型最大输出 token 数 |
 | `AGENT_SKILLS_DIR` | `python/skills` | 自定义技能目录 |
 | `MEMOS_TIMEOUT` | `15` | Memos 请求超时，单位为秒 |
 | `MAX_PARSE_FILE_BYTES` | `20971520` | 远程文件最大解析字节数 |
@@ -175,6 +190,7 @@ VITE_API_BASE_URL=https://your-api.example.com
 | `OCR_MAX_RETRIES` | `1` | OCR 失败重试次数 |
 | `OCR_MAX_IMAGE_DIMENSION` | `2400` | OCR 图片最大边长 |
 | `OCR_JPEG_QUALITY` | `88` | OCR 图片 JPEG 质量 |
+| `KNOWLEDGE_EMBEDDING_MODEL` | `qwen3-embedding:4b` | 知识库使用的 Ollama Embedding 模型 |
 
 更完整的文档处理说明见 [`python/DOCUMENT_PARSING.md`](python/DOCUMENT_PARSING.md)。
 

@@ -5,9 +5,14 @@ from unittest.mock import patch
 from pydantic import ValidationError
 
 from agent.history_manager import HistoryManager
-from models.user import UserPasswordUpdateRequest, UserUpdateRequest
+from db.db_init import ensure_user_role
+from models.user import (
+    UserPasswordUpdateRequest,
+    UserRegisterRequest,
+    UserUpdateRequest,
+)
 from services.history_service import normalize_history_payload
-from services.user_service import update_user_password
+from services.user_service import register_user, update_user_password
 
 
 class HistoryManagerTest(unittest.TestCase):
@@ -153,6 +158,10 @@ class UserRequestValidationTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             UserUpdateRequest(username="999")
 
+    def test_role_cannot_be_updated_from_profile(self):
+        with self.assertRaises(ValidationError):
+            UserUpdateRequest(role="admin")
+
     def test_profile_ranges_are_validated(self):
         with self.assertRaises(ValidationError):
             UserUpdateRequest(age=151)
@@ -190,6 +199,79 @@ class UserRequestValidationTest(unittest.TestCase):
             result = update_user_password(1, "wrong", "new-password")
         self.assertEqual(result["code"], 1)
         self.assertEqual(result["message"], "当前密码错误")
+
+
+class UserRoleTest(unittest.TestCase):
+    def test_registered_user_defaults_to_user_role(self):
+        class FakeQuery:
+            def filter_by(self, **_):
+                return self
+
+            def first(self):
+                return None
+
+        class FakeSession:
+            added = None
+
+            def query(self, *_):
+                return FakeQuery()
+
+            def add(self, user):
+                self.added = user
+
+            def commit(self):
+                pass
+
+            def refresh(self, user):
+                user.id = 1
+                user.created_at = "2026-07-31 00:00:00"
+
+            def close(self):
+                pass
+
+        session = FakeSession()
+        request = UserRegisterRequest(username="100001", password="123456")
+        with (
+            patch("services.user_service.get_session", return_value=session),
+            patch("services.user_service.hash_password", return_value="hashed"),
+        ):
+            result = register_user(request)
+
+        self.assertEqual(session.added.role, "user")
+        self.assertEqual(result["code"], 0)
+        self.assertEqual(result["data"]["role"], "user")
+
+    def test_existing_users_are_backfilled_during_migration(self):
+        class ScalarResult:
+            def scalar(self):
+                return 0
+
+        class FakeSession:
+            def __init__(self):
+                self.statements = []
+                self.committed = False
+
+            def execute(self, statement):
+                self.statements.append(str(statement))
+                return ScalarResult()
+
+            def commit(self):
+                self.committed = True
+
+            def rollback(self):
+                pass
+
+            def close(self):
+                pass
+
+        session = FakeSession()
+        with patch("db.db_init.get_session", return_value=session):
+            ensure_user_role()
+
+        sql = "\n".join(session.statements)
+        self.assertIn("ADD COLUMN role", sql)
+        self.assertIn("UPDATE users SET role = 'user'", sql)
+        self.assertTrue(session.committed)
 
 
 if __name__ == "__main__":

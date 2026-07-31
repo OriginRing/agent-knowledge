@@ -8,6 +8,9 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
+from config.env_config import get_required_env
+
+
 class KnowledgeService:
     _embeddings = None
     _vector_store = None
@@ -15,7 +18,9 @@ class KnowledgeService:
     @classmethod
     def get_embeddings(cls):
         if cls._embeddings is None:
-            cls._embeddings = OllamaEmbeddings(model="qwen3-embedding:4b")
+            cls._embeddings = OllamaEmbeddings(
+                model=get_required_env("KNOWLEDGE_EMBEDDING_MODEL")
+            )
         return cls._embeddings
 
     @classmethod

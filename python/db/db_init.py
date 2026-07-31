@@ -5,8 +5,42 @@ from models.db_models import AgentList
 def init_tables():
     create_tables('agent-user')
     create_tables('agent-knowledge')
+    ensure_user_role()
     ensure_history_longtext()
     init_default_agents()
+
+
+def ensure_user_role():
+    session = None
+    try:
+        session = get_session('agent-user')
+        column_exists = session.execute(text(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' "
+            "AND COLUMN_NAME = 'role'"
+        )).scalar()
+        if not column_exists:
+            session.execute(text(
+                "ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL "
+                "DEFAULT 'user' COMMENT '用户角色' AFTER userpassword"
+            ))
+        session.execute(text(
+            "UPDATE users SET role = 'user' WHERE role IS NULL OR role = ''"
+        ))
+        session.execute(text(
+            "ALTER TABLE users MODIFY role VARCHAR(20) NOT NULL "
+            "DEFAULT 'user' COMMENT '用户角色'"
+        ))
+        session.commit()
+        print("users.role 字段初始化成功")
+    except Exception as exc:
+        if session:
+            session.rollback()
+        print(f"users.role 字段初始化失败: {exc}")
+    finally:
+        if session:
+            session.close()
+
 
 def ensure_history_longtext():
     session = None

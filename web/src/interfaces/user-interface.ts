@@ -5,6 +5,7 @@ export interface UserInterface {
   gender: number | null;
   id: number;
   nickname: string | null;
+  role: string;
   username: string;
   memory: boolean;
 }

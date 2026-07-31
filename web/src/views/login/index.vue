@@ -228,7 +228,7 @@
                       <template #prefix><UserOutlined /></template>
                     </a-input>
                   </a-form-item>
-                  <a-form-item label="昵称（选填）" name="nickname">
+                  <a-form-item label="昵称" name="nickname">
                     <a-input
                       v-model:value.trim="formRegister.nickname"
                       size="large"
@@ -432,6 +432,10 @@ const usernameRules: Rule[] = [
   },
 ];
 
+const nicknameRules: Rule[] = [
+  { required: true, message: "请输入昵称", trigger: "blur" },
+];
+
 const loginRules: Record<string, Rule[]> = {
   username: usernameRules,
   password: [{ required: true, message: "请输入密码", trigger: "blur" }],
@@ -444,6 +448,7 @@ const validateConfirmPassword = async (_rule: Rule, value: string) => {
 
 const registerRules: Record<string, Rule[]> = {
   username: usernameRules,
+  nickname: nicknameRules,
   password: [
     { required: true, message: "请输入密码", trigger: "blur" },
     { min: 6, message: "密码至少需要 6 位", trigger: ["blur", "change"] },

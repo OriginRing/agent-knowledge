@@ -10,6 +10,13 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(50), nullable=False, unique=True, comment='用户名（纯数字）')
     userpassword = Column(String(255), nullable=False, comment='密码')
+    role = Column(
+        String(20),
+        nullable=False,
+        default='user',
+        server_default='user',
+        comment='用户角色',
+    )
     avatar = Column(String(500), nullable=True, comment='头像URL')
     nickname = Column(String(100), nullable=True, comment='昵称')
     gender = Column(Integer, nullable=True, comment='性别：0-女，1-男')

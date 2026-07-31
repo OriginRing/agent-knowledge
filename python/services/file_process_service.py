@@ -12,6 +12,8 @@ from urllib.parse import unquote, urlparse
 
 import requests
 
+from config.env_config import get_int_env
+
 
 class FileProcessService:
     IMAGE_EXTENSIONS = {
@@ -379,7 +381,7 @@ class FileProcessService:
     def _render_pdf_page(cls, content: bytes, page_index: int) -> bytes:
         import pypdfium2 as pdfium
 
-        dpi = int(os.getenv("PDF_OCR_DPI", "180"))
+        dpi = get_int_env("PDF_OCR_DPI")
         with cls._pdfium_lock:
             document = pdfium.PdfDocument(content)
             try:
@@ -403,7 +405,7 @@ class FileProcessService:
         from pypdf import PdfReader
 
         reader = PdfReader(io.BytesIO(content))
-        threshold = int(os.getenv("PDF_OCR_MIN_TEXT_CHARS", "20"))
+        threshold = get_int_env("PDF_OCR_MIN_TEXT_CHARS")
         sections: List[Dict[str, Any]] = []
         warnings: List[str] = []
         ocr_count = 0

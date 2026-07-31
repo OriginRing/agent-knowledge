@@ -49,6 +49,7 @@ def get_user_by_id(user_id: int):
         return {
             'id': user.id,
             'username': user.username,
+            'role': user.role,
             'avatar': user.avatar,
             'nickname': user.nickname,
             'gender': user.gender,
@@ -76,6 +77,7 @@ def register_user(request: UserRegisterRequest):
         new_user = User(
             username=request.username,
             userpassword=hashed_password,
+            role='user',
             avatar=request.avatar,
             nickname=request.nickname,
             gender=request.gender,
@@ -90,6 +92,7 @@ def register_user(request: UserRegisterRequest):
         user = UserResponse(
             id=new_user.id,
             username=new_user.username,
+            role=new_user.role,
             avatar=new_user.avatar,
             nickname=new_user.nickname,
             gender=new_user.gender,
@@ -118,6 +121,7 @@ def login_user(username: str, userpassword: str):
         user_response = UserResponse(
             id=user.id,
             username=user.username,
+            role=user.role,
             avatar=user.avatar,
             nickname=user.nickname,
             gender=user.gender,

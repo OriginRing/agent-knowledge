@@ -455,6 +455,9 @@ class FileProcessServiceTest(unittest.TestCase):
 
 
 class OCRServiceTest(unittest.TestCase):
+    def tearDown(self):
+        OCRService._client = None
+
     def test_image_bytes_are_normalized_to_data_url(self):
         image_bytes = FileProcessServiceTest._image_bytes()
         with patch.object(
@@ -464,8 +467,65 @@ class OCRServiceTest(unittest.TestCase):
         self.assertEqual(text, "识别结果")
         self.assertTrue(recognize.call_args.args[0].startswith("data:image/jpeg;base64,"))
 
+    def test_client_configuration_comes_from_environment(self):
+        OCRService._client = None
+        env = {
+            "QWEN_API_KEY": "test-key",
+            "QWEN_OCR_BASE_URL": "https://ocr.example.com/v1",
+            "OCR_TIMEOUT_SECONDS": "12.5",
+        }
+        with patch.dict(os.environ, env, clear=True), patch(
+            "services.ocr_service.OpenAI"
+        ) as openai:
+            OCRService.get_client()
+        openai.assert_called_once_with(
+            api_key="test-key",
+            base_url="https://ocr.example.com/v1",
+            timeout=12.5,
+        )
+
+    def test_ocr_model_comes_from_environment(self):
+        completion = types.SimpleNamespace(
+            choices=[
+                types.SimpleNamespace(
+                    message=types.SimpleNamespace(content="识别结果")
+                )
+            ]
+        )
+        env = {
+            "QWEN_OCR_MODEL": "custom-ocr-model",
+            "OCR_MAX_RETRIES": "0",
+        }
+        with patch.dict(os.environ, env, clear=True), patch.object(
+            OCRService, "get_client"
+        ) as get_client:
+            get_client.return_value.chat.completions.create.return_value = completion
+            result = OCRService._recognize("data:image/jpeg;base64,demo")
+
+        self.assertEqual(result, "识别结果")
+        self.assertEqual(
+            get_client.return_value.chat.completions.create.call_args.kwargs["model"],
+            "custom-ocr-model",
+        )
+
 
 class KnowledgeSectionTest(unittest.TestCase):
+    def tearDown(self):
+        KnowledgeService._embeddings = None
+
+    def test_embedding_model_comes_from_environment(self):
+        KnowledgeService._embeddings = None
+        with patch.dict(
+            os.environ,
+            {"KNOWLEDGE_EMBEDDING_MODEL": "custom-embedding-model"},
+            clear=True,
+        ), patch(
+            "services.knowledge_service.OllamaEmbeddings"
+        ) as embeddings:
+            KnowledgeService.get_embeddings()
+
+        embeddings.assert_called_once_with(model="custom-embedding-model")
+
     def test_sections_are_chunked_without_crossing_source_boundaries(self):
         documents = KnowledgeService.split_sections(
             [

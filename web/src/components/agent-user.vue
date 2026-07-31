@@ -8,19 +8,19 @@
       <template #overlay>
         <a-menu>
           <a-menu-item @click="openProfile">
-            <p>
+            <a-flex align="center" gap="small">
               <a-avatar :size="18" :src="user.avatar || undefined">
                 <template #icon><UserOutlined /></template>
               </a-avatar>
               个人信息
-            </p>
+            </a-flex>
           </a-menu-item>
           <a-menu-item>
             <a-flex align="center" justify="space-between">
-              <span>
+              <a-flex align="center" gap="small">
                 <SkinOutlined />
                 主题
-              </span>
+              </a-flex>
               <a-switch
                 v-model:checked="themeSwitch"
                 size="small"
@@ -36,10 +36,10 @@
             </a-flex>
           </a-menu-item>
           <a-menu-item @click.stop="remove">
-            <p>
+            <a-flex align="center" gap="small">
               <LogoutOutlined />
               退出登录
-            </p>
+            </a-flex>
           </a-menu-item>
         </a-menu>
       </template>
@@ -74,9 +74,12 @@
           <template #icon><UserOutlined /></template>
         </a-avatar>
       </a-descriptions-item>
-      <a-descriptions-item label="用户名">{{
-        user.username
-      }}</a-descriptions-item>
+      <a-descriptions-item label="用户名">
+        {{ user.username }}
+        <a-tag color="processing" style="margin-left: 8px">
+          {{ user.role === "admin" ? "管理员" : "用户" }}
+        </a-tag>
+      </a-descriptions-item>
       <a-descriptions-item label="昵称">{{
         user.nickname || "未设置"
       }}</a-descriptions-item>

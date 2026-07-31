@@ -29,9 +29,9 @@
     <div class="agent-history-list">
       <a-list :locale="{ emptyText: '暂无数据' }">
         <template #header>
-          <router-link class="history-list-title" to="/history"
-            >历史对话</router-link
-          >
+          <router-link class="history-list-title" to="/history">
+            历史对话
+          </router-link>
         </template>
         <a-list-item
           v-for="item in historyList"
@@ -223,41 +223,48 @@ onMounted(() => {
 .agent-history-list {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  margin-top: 8px;
-}
 
-.history-list-title {
-  display: inline-flex;
-  min-height: 36px;
-  align-items: center;
-  padding: 0 10px;
-  border-radius: var(--app-radius-pill);
-  color: var(--app-text-secondary);
-  font-size: 12px;
-  font-weight: 750;
-  cursor: pointer;
+  .history-list-title {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    padding: 0 10px;
+    border-radius: var(--app-radius-pill);
+    color: var(--app-text-secondary);
+    font-size: 12px;
+    font-weight: 750;
+    cursor: pointer;
 
-  &:hover,
-  &.router-link-active {
-    color: var(--app-primary);
-    background: var(--app-primary-soft);
+    &:hover,
+    &.router-link-active {
+      color: var(--app-primary);
+      background: var(--app-primary-soft);
+    }
   }
-}
 
-.ant-list {
-  height: 100%;
-  overflow: hidden;
-}
+  .ant-list {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
 
-:deep(.ant-list-header) {
-  padding: 8px 0 4px;
-  border: none;
-}
+  :deep(.ant-list-header) {
+    padding: 8px 0 4px;
+    border: none;
+  }
 
-:deep(.ant-spin-nested-loading) {
-  height: calc(100% - 47px);
-  overflow: auto;
+  :deep(.ant-spin-nested-loading) {
+    display: inline-block;
+    flex: 1;
+    min-height: 0;
+    padding: 0 4px;
+    overflow-y: scroll;
+  }
 }
 
 .ant-list-item {

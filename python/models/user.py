@@ -44,6 +44,7 @@ class UserPasswordUpdateRequest(BaseModel):
 class UserResponse(BaseModel):
     id: int
     username: str
+    role: str
     avatar: Optional[str]
     nickname: Optional[str]
     gender: Optional[int]

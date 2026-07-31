@@ -14,6 +14,14 @@ DB_CONFIG = {
         'database': 'agent-user',
         'port': 3306,
         'charset': 'utf8mb4'
+    },
+    'simulated-data': {
+        'host': 'localhost',
+        'user': 'root',
+        'password': '12345678',
+        'database': 'simulated-data',
+        'port': 3306,
+        'charset': 'utf8mb4'
     }
 }
 

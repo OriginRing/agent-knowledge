@@ -20,6 +20,8 @@ const SKILL_LABELS: Record<string, string> = {
   "web-search": "联网搜索",
   "knowledge-search": "知识库检索",
   "artifact-generator": "文件生成",
+  "sales-performance": "销售业绩查询",
+  "chart-visualization": "图表可视化",
 };
 
 export const getSkillDisplayName = (skill: string): string =>

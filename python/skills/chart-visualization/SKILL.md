@@ -1,7 +1,9 @@
 ---
 name: chart-visualization
 description: 将用户提供的数据转换为前端可直接渲染的 GPT-Vis 图表，并附上简短的数据解读。
-kind: prompt
+entrypoint: handler.py:execute
+kind: hybrid
+order: 40
 intent_keywords: 生成图表,绘制图表,画图表,数据可视化,可视化展示,折线图,柱状图,条形图,饼图,面积图,散点图,雷达图,可视化表格
 ---
 

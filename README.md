@@ -16,6 +16,7 @@
 - **长期记忆**：可接入 Memos 服务，按用户管理、检索和订正记忆。
 - **联网搜索**：通过 Tavily 为智能体补充实时信息。
 - **技能系统**：可通过 `SKILL.md` 扩展搜索、文件读取、图表可视化和文档生成能力。
+- **销售业绩助手**：按登录用户角色查询模拟销售数据，支持单月、季度、半年及全年汇总，以及图表展示和文件导出。
 - **文件与知识库管理**：文件上传至阿里云 OSS 后，可用于对话附件或写入知识库。
 - **用户与会话管理**：支持注册登录、个人资料、历史会话和密码修改。
 
@@ -87,9 +88,15 @@ CREATE DATABASE `agent-knowledge`
 CREATE DATABASE `agent-user`
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
+
+CREATE DATABASE `simulated-data`
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
 ```
 
 然后根据本地环境修改 [`python/config/db_config.py`](python/config/db_config.py) 中的主机、账号和密码。后端启动时会自动创建数据表并写入默认智能体配置。
+
+销售业绩助手使用已有的 `simulated-data.sales_performance` 表，表内至少需要包含唯一用户账号 `username` 和 JSON 类型的 `sale` 字段。`sale` 支持 `yyyy-mm` 与 `yyyy-mm-dd` 日期键。查询期间支持单月（如“2026年3月”）、季度（如“2026年第一季度”“2026年Q1”）、上半年、下半年和全年；未指定年份时使用当前自然年。
 
 > 当前数据库配置直接保存在 Python 文件中，仅适合本地开发。生产部署时建议改为从环境变量或密钥管理服务读取。
 
@@ -220,6 +227,7 @@ python/skills/
 - `image-to-document`：图片转文档
 - `artifact-generator`：生成可下载文件
 - `chart-visualization`：图表可视化
+- `sales-performance`：带角色权限校验的销售业绩查询
 
 技能元数据、执行器和产物格式的说明见 [`python/skills/README.md`](python/skills/README.md)。
 

@@ -27,7 +27,8 @@ artifact: docx
 
 - `name`：通过 Chat 请求的 `skill` 字段显式启用时使用。
 - `entrypoint`：可执行技能的 Python 文件和函数，函数返回字典结果。
-- `kind`：`prompt`、`executor` 或 `artifact`。
+- `kind`：`prompt`、`executor`、`hybrid` 或 `artifact`。`hybrid` 可同时提供提示词和执行入口。
 - `order`：多个强制技能的执行顺序。
+- `agent_codes`：允许执行该技能的智能体标识，多个值使用逗号分隔；留空表示不限制。
 - `file_extensions` 和 `intent_keywords`：用于自动匹配，可留空。
 - `artifact`：支持以逗号声明 `docx,xlsx,pptx,pdf` 等产物格式；模型回答后生成文件、上传 OSS，并由 Chat 的 `file` 节点返回一个或多个地址。

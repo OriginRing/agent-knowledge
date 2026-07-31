@@ -56,6 +56,7 @@ class AgentService:
                 "model_name": agent.model_name,
                 "api_key_name": agent.api_key_name,
                 "base_url": agent.base_url,
+                "default_skill": agent.default_skill,
                 "status": agent.status,
                 "description": agent.description,
                 "is_default": agent.is_default,
@@ -281,32 +282,48 @@ class AgentService:
             requested_prompt_skill = skill if skill and skill not in {
                 "file-reader", "web-search", "knowledge-search", "artifact-generator"
             } else None
-            selected_skill = SkillService.select_skill(
-                text, files, requested_skill=requested_prompt_skill
+            intent_skill = SkillService.select_skill(
+                text,
+                files,
+                requested_skill=requested_prompt_skill,
+                agent_code=agent_code,
             )
-            selected_skill_name = selected_skill.name if selected_skill else None
-            if (
-                selected_skill
-                and selected_skill.file_extensions
-                and files
-                and not actual_file
-            ):
-                raise ValueError(
-                    f"当前智能体不支持文件输入，无法执行技能：{selected_skill_name}"
-                )
-            common["skill"] = selected_skill_name
+            selected_skills = {}
+            default_skill_name = config.get("default_skill")
+            if default_skill_name:
+                default_skill = SkillService.get_skill(default_skill_name)
+                SkillService.ensure_agent_allowed(default_skill, agent_code)
+                selected_skills[default_skill.name] = default_skill
+            if intent_skill:
+                selected_skills[intent_skill.name] = intent_skill
+            for selected in selected_skills.values():
+                if selected.file_extensions and files and not actual_file:
+                    raise ValueError(
+                        f"当前智能体不支持文件输入，无法执行技能：{selected.name}"
+                    )
+            ordered_skills = sorted(
+                selected_skills.values(),
+                key=lambda item: (item.order, item.name),
+            )
+            selected_skill_names = [item.name for item in ordered_skills]
+            common["skill"] = selected_skill_names[0] if selected_skill_names else None
             enabled_skill_names = set(requested_skills)
-            if selected_skill_name:
-                enabled_skill_names.add(selected_skill_name)
+            enabled_skill_names.update(selected_skill_names)
             if files:
                 enabled_skill_names.add("file-reader")
             artifact_formats = SkillService.detect_artifact_formats(
                 text, output_format
             )
-            if selected_skill and selected_skill.artifact and not artifact_formats:
-                artifact_formats = SkillService.detect_artifact_formats(
-                    "", selected_skill.artifact
-                )
+            if not config.get("support_download", True):
+                artifact_formats = []
+            if not artifact_formats:
+                for selected in ordered_skills:
+                    if selected.artifact:
+                        artifact_formats = SkillService.detect_artifact_formats(
+                            "", selected.artifact
+                        )
+                        if artifact_formats:
+                            break
             if artifact_formats:
                 enabled_skill_names.add("artifact-generator")
             common["skills"] = sorted(enabled_skill_names)
@@ -315,8 +332,9 @@ class AgentService:
                     config,
                     "skill",
                     "completed" if enabled_skill_names else "skipped",
-                    f"已启用技能：{selected_skill_name}"
-                    if selected_skill and len(enabled_skill_names) == 1
+                    f"已启用技能：{selected_skill_names[0]}"
+                    if len(selected_skill_names) == 1
+                    and len(enabled_skill_names) == 1
                     else f"已启用 {len(enabled_skill_names)} 个技能"
                     if enabled_skill_names
                     else "未匹配到需要执行的技能",
@@ -327,10 +345,19 @@ class AgentService:
             )
 
             system_messages: List[Dict[str, str]] = []
-            if selected_skill:
-                system_messages.append({"role": "system", "content": selected_skill.prompt})
+            for selected in ordered_skills:
+                if (
+                    selected.kind == "hybrid"
+                    and selected.entrypoint
+                    and default_skill_name
+                ):
+                    continue
+                if selected.prompt:
+                    system_messages.append(
+                        {"role": "system", "content": selected.prompt}
+                    )
 
-            if artifact_formats:
+            if artifact_formats and default_skill_name != "sales-performance":
                 format_prompts = {
                     "xlsx": "请使用 Markdown 表格组织需要写入 Excel 的数据，每个一级或二级标题对应一个工作表。",
                     "pptx": "请使用 Markdown 标题划分幻灯片，每页使用简洁的要点列表。",
@@ -429,6 +456,9 @@ class AgentService:
             knowledge_items: List[Dict[str, Any]] = []
             parsed_files: List[Dict[str, Any]] = []
             processed_files: List[Dict[str, Any]] = []
+            structured_data: Dict[str, Any] = {}
+            presentation_content = ""
+            artifact_source_content = ""
             if actual_file:
                 yield cls._dump(
                     cls._step(
@@ -523,6 +553,139 @@ class AgentService:
                     )
                 )
 
+            business_skills = [
+                selected
+                for selected in ordered_skills
+                if selected.entrypoint
+                and selected.name
+                not in {
+                    "file-reader",
+                    "web-search",
+                    "knowledge-search",
+                    "artifact-generator",
+                }
+            ]
+            for business_skill in business_skills:
+                if business_skill.kind == "hybrid" and not structured_data:
+                    continue
+                node_id = f"skill-{business_skill.name}"
+                title = business_skill.description or business_skill.name
+                yield cls._dump(
+                    cls._step(
+                        config,
+                        business_skill.name.replace("-", "_"),
+                        "started",
+                        f"正在执行{title}",
+                        node_id=node_id,
+                        node_kind="skill",
+                        **common,
+                    )
+                )
+                try:
+                    result = await asyncio.to_thread(
+                        SkillService.execute,
+                        business_skill.name,
+                        agent_code=agent_code,
+                        query=text,
+                        files=files,
+                        requester_username=username,
+                        upstream_data=structured_data,
+                    )
+                    result_data = result.get("data")
+                    if isinstance(result_data, dict):
+                        structured_data = result_data
+                    if result.get("presentation"):
+                        presentation_content = str(result["presentation"])
+                    if result.get("artifactContent"):
+                        artifact_source_content = str(result["artifactContent"])
+                    context_text = result.get("context", "")
+                    if context_text:
+                        system_messages.append(
+                            {
+                                "role": "system",
+                                "content": (
+                                    f"【{business_skill.name} 结果】\n"
+                                    f"{context_text}"
+                                ),
+                            }
+                        )
+                    node_details = {
+                        "status": result.get("status", "success"),
+                        "summary": result.get("summary", ""),
+                    }
+                    if isinstance(result_data, dict):
+                        node_details["data"] = result_data
+                    yield cls._dump(
+                        cls._step(
+                            config,
+                            business_skill.name.replace("-", "_"),
+                            "completed",
+                            result.get("summary") or f"{title}完成",
+                            details=node_details,
+                            node_id=node_id,
+                            node_kind="skill",
+                            **common,
+                        )
+                    )
+                    if result.get("stopPipeline"):
+                        direct_response = str(
+                            result.get("directResponse") or "请求无法继续处理"
+                        )
+                        yield cls._dump(
+                            cls._event(
+                                config,
+                                event="message",
+                                content=direct_response,
+                                **common,
+                            )
+                        )
+                        yield cls._dump(
+                            cls._event(
+                                config,
+                                event="done",
+                                done=True,
+                                knowledge=[],
+                                artifacts=[],
+                                file_url="",
+                                **common,
+                            )
+                        )
+                        return
+                except Exception as exc:
+                    yield cls._dump(
+                        cls._step(
+                            config,
+                            business_skill.name.replace("-", "_"),
+                            "failed",
+                            f"{title}失败：{exc}",
+                            details={"error": str(exc)},
+                            node_id=node_id,
+                            node_kind="skill",
+                            **common,
+                        )
+                    )
+                    if business_skill.name == config.get("default_skill"):
+                        yield cls._dump(
+                            cls._event(
+                                config,
+                                event="message",
+                                content="销售业绩查询失败，请稍后重试",
+                                **common,
+                            )
+                        )
+                        yield cls._dump(
+                            cls._event(
+                                config,
+                                event="done",
+                                done=True,
+                                knowledge=[],
+                                artifacts=[],
+                                file_url="",
+                                **common,
+                            )
+                        )
+                        return
+
             for executor_name in ("web-search", "knowledge-search"):
                 if executor_name not in requested_skills:
                     continue
@@ -543,6 +706,7 @@ class AgentService:
                     result = await asyncio.to_thread(
                         SkillService.execute,
                         executor_name,
+                        agent_code=agent_code,
                         query=text,
                         files=files,
                     )
@@ -588,6 +752,16 @@ class AgentService:
             base_messages = system_messages + history_messages
             full_content = ""
             full_think_message = ""
+            if presentation_content:
+                yield cls._dump(
+                    cls._event(
+                        config,
+                        event="message",
+                        content=f"{presentation_content}\n\n",
+                        knowledge=knowledge_items,
+                        **common,
+                    )
+                )
             yield cls._dump(
                 cls._step(
                     config,
@@ -620,29 +794,46 @@ class AgentService:
                     common,
                 )
 
-            async for payload in model_stream:
-                full_content += payload.get("content", "")
-                full_think_message += payload.get("thinkMessage", "")
-                if payload.get("thinkMessage"):
-                    payload["node"] = {
-                        "id": "model-call-1",
-                        "kind": "model",
-                        "name": "model_call",
-                        "title": "模型正在思考",
-                        "summary": "模型正在思考",
-                        "status": "running",
-                        "details": {
-                            "model": config["model_name"],
-                            "reasoning": full_think_message,
-                        },
-                    }
-                if payload.get("event") == "message":
-                    payload["knowledge"] = knowledge_items
-                yield cls._dump(payload)
+            try:
+                async for payload in model_stream:
+                    full_content += payload.get("content", "")
+                    full_think_message += payload.get("thinkMessage", "")
+                    if payload.get("thinkMessage"):
+                        payload["node"] = {
+                            "id": "model-call-1",
+                            "kind": "model",
+                            "name": "model_call",
+                            "title": "模型正在思考",
+                            "summary": "模型正在思考",
+                            "status": "running",
+                            "details": {
+                                "model": config["model_name"],
+                                "reasoning": full_think_message,
+                            },
+                        }
+                    if payload.get("event") == "message":
+                        payload["knowledge"] = knowledge_items
+                    yield cls._dump(payload)
+            except Exception as exc:
+                if not presentation_content:
+                    raise
+                yield cls._dump(
+                    cls._step(
+                        config,
+                        "model_call",
+                        "failed",
+                        "趋势解读生成失败，已保留精确销售结果",
+                        details={"error": str(exc), "model": config["model_name"]},
+                        node_id="model-call-1",
+                        node_kind="model",
+                        **common,
+                    )
+                )
 
             artifacts: List[Dict[str, Any]] = []
             file_url = ""
-            if artifact_formats and full_content:
+            artifact_content = artifact_source_content or full_content
+            if artifact_formats and artifact_content:
                 generated_files: List[Dict[str, Any]] = []
                 generation_errors: List[Dict[str, str]] = []
                 yield cls._dump(
@@ -662,9 +853,15 @@ class AgentService:
                         artifact = await asyncio.to_thread(
                             SkillService.execute,
                             "artifact-generator",
-                            content=full_content,
+                            agent_code=agent_code,
+                            content=artifact_content,
                             artifact_format=artifact_format,
-                            title="AI生成文件",
+                            title=(
+                                f"{structured_data.get('nickname', '')}"
+                                f"{structured_data.get('periodLabel', '')}销售业绩"
+                                if structured_data
+                                else "AI生成文件"
+                            ),
                         )
                         artifacts.append(artifact)
                         generated_files.append(

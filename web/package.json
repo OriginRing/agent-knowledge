@@ -16,6 +16,7 @@
     "@antv/gpt-vis": "^1.0.0",
     "@open-file-viewer/core": "^0.1.32",
     "@open-file-viewer/vue": "^0.1.32",
+    "@zumer/snapdom": "^1.9.14",
     "ant-design-vue": "^4.2.6",
     "ant-design-x-vue": "^1.6.0",
     "axios": "^1.16.1",

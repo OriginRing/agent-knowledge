@@ -118,7 +118,6 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   // 仅拦截以 vis 开头的代码块
   if (info.startsWith("vis")) {
     // 拼接语言标识和代码内容，作为 GPTVis 的语法
-    console.log(info, token);
     const syntax =
       info +
       "\n" +

@@ -34,7 +34,7 @@ class SkillServiceTest(unittest.TestCase):
                 skill = SkillService.select_skill(prompt, [])
                 self.assertIsNotNone(skill)
                 self.assertEqual(skill.name, "chart-visualization")
-                self.assertEqual(skill.kind, "prompt")
+                self.assertEqual(skill.kind, "hybrid")
 
     def test_chart_visualization_skill_can_be_selected_explicitly(self):
         skill = SkillService.select_skill(

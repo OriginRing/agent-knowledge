@@ -5,7 +5,7 @@ from unittest.mock import patch
 from pydantic import ValidationError
 
 from agent.history_manager import HistoryManager
-from db.db_init import ensure_user_role
+from db.db_init import ensure_agent_default_skill, ensure_user_role
 from models.user import (
     UserPasswordUpdateRequest,
     UserRegisterRequest,
@@ -271,6 +271,40 @@ class UserRoleTest(unittest.TestCase):
         sql = "\n".join(session.statements)
         self.assertIn("ADD COLUMN role", sql)
         self.assertIn("UPDATE users SET role = 'user'", sql)
+        self.assertTrue(session.committed)
+
+
+class AgentSkillMigrationTest(unittest.TestCase):
+    def test_default_skill_column_is_added_idempotently(self):
+        class ScalarResult:
+            def scalar(self):
+                return 0
+
+        class FakeSession:
+            def __init__(self):
+                self.statements = []
+                self.committed = False
+
+            def execute(self, statement):
+                self.statements.append(str(statement))
+                return ScalarResult()
+
+            def commit(self):
+                self.committed = True
+
+            def rollback(self):
+                pass
+
+            def close(self):
+                pass
+
+        session = FakeSession()
+        with patch("db.db_init.get_session", return_value=session):
+            ensure_agent_default_skill()
+
+        self.assertTrue(
+            any("ADD COLUMN default_skill" in sql for sql in session.statements)
+        )
         self.assertTrue(session.committed)
 
 

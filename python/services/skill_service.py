@@ -19,6 +19,7 @@ class SkillDefinition:
     entrypoint: Optional[str] = None
     order: int = 100
     kind: str = "prompt"
+    agent_codes: List[str] = field(default_factory=list)
 
 
 class SkillService:
@@ -74,6 +75,7 @@ class SkillService:
                     entrypoint=metadata.get("entrypoint") or None,
                     order=int(metadata.get("order", "100")),
                     kind=metadata.get("kind", "prompt"),
+                    agent_codes=cls._csv(metadata.get("agent_codes", "")),
                 )
         cls._cache = skills
         return skills
@@ -88,18 +90,22 @@ class SkillService:
         text: str,
         files: List[str],
         requested_skill: Optional[str] = None,
+        agent_code: Optional[str] = None,
     ) -> Optional[SkillDefinition]:
         skills = cls.load_skills()
         if requested_skill:
             skill = skills.get(requested_skill)
             if not skill:
                 raise ValueError(f"技能不存在: {requested_skill}")
+            cls.ensure_agent_allowed(skill, agent_code)
             return skill
 
         normalized_text = (text or "").lower()
         extensions = {cls._file_extension(url) for url in files}
         for skill in skills.values():
-            if skill.kind != "prompt":
+            if skill.kind not in {"prompt", "hybrid"}:
+                continue
+            if skill.agent_codes and agent_code not in skill.agent_codes:
                 continue
             file_matches = not skill.file_extensions or bool(
                 extensions.intersection(skill.file_extensions)
@@ -117,6 +123,14 @@ class SkillService:
         if not skill:
             raise ValueError(f"技能不存在: {name}")
         return skill
+
+    @staticmethod
+    def ensure_agent_allowed(
+        skill: SkillDefinition,
+        agent_code: Optional[str],
+    ) -> None:
+        if skill.agent_codes and agent_code not in skill.agent_codes:
+            raise PermissionError(f"当前智能体无权执行技能: {skill.name}")
 
     @classmethod
     def get_handler(cls, skill: SkillDefinition) -> Callable[..., Dict[str, Any]]:
@@ -138,10 +152,17 @@ class SkillService:
         return handler
 
     @classmethod
-    def execute(cls, name: str, **kwargs) -> Dict[str, Any]:
+    def execute(
+        cls,
+        name: str,
+        *,
+        agent_code: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
         skill = cls.get_skill(name)
+        cls.ensure_agent_allowed(skill, agent_code)
         handler = cls.get_handler(skill)
-        result = handler(**kwargs)
+        result = handler(agent_code=agent_code, **kwargs)
         if not isinstance(result, dict):
             raise ValueError(f"技能返回值必须是字典: {name}")
         return result

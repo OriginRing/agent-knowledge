@@ -1,13 +1,13 @@
 /* 默认浅色主题 */
 :root {
-    color-scheme: light;
-    --header-bg: #001529;
-    --color: var(--ant-color-text);
+  color-scheme: light;
+  --header-bg: #001529;
+  --color: var(--ant-color-text);
 }
 
 /* 暗黑主题时覆盖变量 */
 :root.dark {
-    color-scheme: dark;
-    --header-bg: #1f1f1f;
-    --color: var(--ant-color-text);
+  color-scheme: dark;
+  --header-bg: #1f1f1f;
+  --color: var(--ant-color-text);
 }

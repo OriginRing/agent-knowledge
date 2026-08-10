@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -eu
+
+if git diff --cached --quiet -- web; then
+  exit 0
+fi
+
+echo "检测到 web 目录的暂存变更，正在执行 lint..."
+npm --prefix web run lint

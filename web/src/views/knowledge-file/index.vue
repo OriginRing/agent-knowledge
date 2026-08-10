@@ -109,6 +109,7 @@ const previewFile = async (name: string, url: string) => {
     const blob = await response.blob();
     hide();
     file.value = new File([blob], name, { type: blob.type });
+    console.log(file.value);
   } catch (error) {
     console.error("转换文件失败:", error);
     throw error;

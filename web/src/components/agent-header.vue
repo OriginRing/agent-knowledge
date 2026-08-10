@@ -31,18 +31,6 @@
           <FormOutlined />
         </template>
       </a-button>
-      <a-select
-        v-model:value="agentMode"
-        style="width: 120px"
-        @change="selectAgent"
-      >
-        <a-select-option
-          v-for="agent in listAgent"
-          :key="agent.agentCode"
-          :value="agent.agentCode"
-          >{{ agent.agentName }}</a-select-option
-        >
-      </a-select>
     </a-flex>
 
     <a-flex v-if="isChatPage" class="chat-title" align="center" vertical>
@@ -74,7 +62,6 @@ const router = useRouter();
 const route = useRoute();
 
 const listAgent = ref<AgentDetail[]>([]);
-const agentMode = ref("");
 const historyView = ref(true);
 const history = ref<AgentChat[]>([]);
 
@@ -101,19 +88,15 @@ const getAgentList = async () => {
   if (res.code === 0) {
     listAgent.value = res.data || [];
     chatService.setAgentList(listAgent.value);
-    agentMode.value =
-      listAgent.value.find((item) => item.default)?.agentCode || "100001";
-    selectAgent(agentMode.value);
+    const defaultAgent =
+      listAgent.value.find((item) => item.default) || listAgent.value[0];
+    if (defaultAgent) {
+      chatService.setAgentDetail(defaultAgent);
+    }
   } else {
     listAgent.value = [];
+    chatService.setAgentList([]);
   }
-};
-
-const selectAgent = (code: string) => {
-  const agent = listAgent.value.find((item) => item.agentCode === code);
-  chatService.setAgentDetail(agent as AgentDetail);
-  chatService.setNewConversation(createChatSession());
-  chatService.setAgentHistoryDetail([]);
 };
 
 watchEffect(() => {
@@ -156,14 +139,6 @@ onMounted(() => {
     background: var(--app-surface-soft);
   }
 
-  :deep(.ant-select) {
-    .ant-select-selector {
-      border: 0 !important;
-      border-radius: var(--app-radius-pill) !important;
-      background: var(--app-surface-soft) !important;
-    }
-  }
-
   .chat-title {
     max-width: 40%;
     overflow: hidden;
@@ -192,10 +167,6 @@ onMounted(() => {
 
     :deep(.ant-flex:first-child) {
       gap: 8px !important;
-    }
-
-    :deep(.ant-select) {
-      width: 104px !important;
     }
 
     .chat-title {

@@ -143,7 +143,7 @@ import {
   SyncOutlined,
   DownloadOutlined,
 } from "@ant-design/icons-vue";
-import ChatInput from "@view/components/chat-input.vue";
+import ChatInput from "@view/components/chat-input/index.vue";
 import ChatThoughtChain from "@view/components/chat-thought-chain.vue";
 import { useChatStore } from "@view/stores/chat";
 import { renderMarkdown } from "@view/utils/typewriter";

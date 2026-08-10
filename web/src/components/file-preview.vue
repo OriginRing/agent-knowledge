@@ -14,6 +14,7 @@ import {
   pdfPlugin,
   textPlugin,
   videoPlugin,
+  ofdPlugin,
 } from "@open-file-viewer/core";
 import "@open-file-viewer/core/style.css";
 import { ref, watchEffect } from "vue";
@@ -46,6 +47,7 @@ const plugins = [
   model3dPlugin(),
   gisPlugin(),
   fallbackPlugin(),
+  ofdPlugin(),
 ];
 
 const close = () => emit("close");

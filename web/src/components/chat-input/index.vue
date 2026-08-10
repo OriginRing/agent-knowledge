@@ -7,11 +7,45 @@
       '--color-bg-elevated': token.colorBgElevated,
     }"
   >
+    <div
+      v-if="mentionOpen"
+      class="agent-mention-menu"
+      role="listbox"
+      aria-label="选择智能体"
+    >
+      <button
+        v-for="(agent, index) in filteredAgents"
+        :id="`agent-option-${agent.agentCode}`"
+        :key="agent.agentCode"
+        type="button"
+        role="option"
+        :aria-selected="index === activeAgentIndex"
+        :class="[
+          'agent-mention-option',
+          { active: index === activeAgentIndex },
+        ]"
+        @mousedown.prevent="selectAgent(agent)"
+      >
+        <span class="agent-option-name">{{ agent.agentName }}</span>
+        <span v-if="agent.description" class="agent-option-description">
+          {{ agent.description }}
+        </span>
+      </button>
+      <div v-if="!filteredAgents.length" class="agent-mention-empty">
+        未找到匹配的智能体
+      </div>
+    </div>
     <Sender
       v-model:value="chatInput"
       placeholder="请输入..."
       :auto-size="{ minRows: 1, maxRows: 3 }"
       :actions="false"
+      :components="senderComponents"
+      :aria-activedescendant="activeDescendant"
+      :aria-expanded="mentionOpen"
+      aria-autocomplete="list"
+      role="combobox"
+      @blur="mentionOpen = false"
       @keydown="handleEnter"
     >
       <template #header>
@@ -145,7 +179,7 @@
   </div>
 </template>
 <script lang="ts" setup>
-import { nextTick, ref } from "vue";
+import { computed, nextTick, provide, ref, shallowRef, watch } from "vue";
 import {
   ApiOutlined,
   GlobalOutlined,
@@ -155,10 +189,17 @@ import {
 } from "@ant-design/icons-vue";
 import { Sender } from "ant-design-x-vue";
 import { useChatStore } from "@view/stores/chat";
-import { message, theme } from "ant-design-vue";
+import { Input, message, theme } from "ant-design-vue";
 import httpClient from "@view/services/http";
 import { formatFileSize, getFileExtUpper, isImageFile } from "@view/utils/file";
+import { createChatSession } from "@view/utils/random";
 import FileIcon from "@view/components/file-icon.vue";
+import AgentMentionInput from "./components/agent-mention-input.vue";
+import {
+  agentMentionKey,
+  type AgentMentionEditorApi,
+} from "./components/agent-mention-context";
+import type { AgentDetail } from "@view/interfaces/agent-interface";
 
 const emit = defineEmits(["stopMessage", "sendMessage"]);
 const _props = defineProps({
@@ -167,6 +208,9 @@ const _props = defineProps({
 
 const { useToken } = theme;
 const { token } = useToken();
+const senderComponents = {
+  input: AgentMentionInput as unknown as typeof Input.TextArea,
+};
 const chatInput = ref<string>("");
 const chatService = useChatStore();
 const thinking = ref(true);
@@ -181,6 +225,83 @@ const uploadFiles = ref<
     image?: string;
   }>
 >([]);
+const mentionOpen = ref(false);
+const mentionQuery = ref("");
+const mentionStart = ref(-1);
+const activeAgentIndex = ref(0);
+const mentionEditorApi = shallowRef<AgentMentionEditorApi>();
+
+const selectedAgent = computed(() =>
+  chatService.getAgentDetail?.agentCode
+    ? chatService.getAgentDetail
+    : undefined,
+);
+
+const defaultAgent = computed(
+  () =>
+    chatService.getAgentList.find((agent) => agent.default) ||
+    chatService.getAgentList[0],
+);
+
+const filteredAgents = computed(() => {
+  const query = mentionQuery.value.trim().toLocaleLowerCase();
+  if (!query) return chatService.getAgentList;
+  return chatService.getAgentList.filter((agent) =>
+    agent.agentName.toLocaleLowerCase().includes(query),
+  );
+});
+
+const activeDescendant = computed(() => {
+  if (!mentionOpen.value) return undefined;
+  const agent = filteredAgents.value[activeAgentIndex.value];
+  return agent ? `agent-option-${agent.agentCode}` : undefined;
+});
+
+watch(chatInput, (value) => {
+  const match = value.match(/(?:^|\s)@([^@\s]*)$/);
+  if (!match) {
+    mentionOpen.value = false;
+    mentionStart.value = -1;
+    return;
+  }
+  mentionStart.value = value.lastIndexOf("@");
+  mentionQuery.value = match[1] || "";
+  activeAgentIndex.value = 0;
+  mentionOpen.value = true;
+});
+
+watch(filteredAgents, (agents) => {
+  if (activeAgentIndex.value >= agents.length) activeAgentIndex.value = 0;
+});
+
+const selectAgent = (agent: AgentDetail) => {
+  const changed = agent.agentCode !== selectedAgent.value?.agentCode;
+  if (changed) emit("stopMessage");
+  const triggerLength =
+    mentionStart.value >= 0 ? chatInput.value.length - mentionStart.value : 0;
+  mentionEditorApi.value?.insertMention(agent, triggerLength);
+  chatService.setAgentDetail(agent);
+  if (changed) {
+    chatService.setNewConversation(createChatSession());
+    chatService.setActiveHistorySession("");
+    chatService.setAgentHistoryDetail([]);
+  }
+  mentionOpen.value = false;
+  mentionStart.value = -1;
+};
+
+const clearAgent = () => {
+  chatService.setAgentDetail(defaultAgent.value || ({} as AgentDetail));
+  thinking.value = true;
+  internet.value = false;
+  knowledge.value = false;
+};
+
+provide(agentMentionKey, {
+  selectedAgent,
+  editorApi: mentionEditorApi,
+  clearAgent,
+});
 
 const connectInternet = () => {
   internet.value = !internet.value;
@@ -190,10 +311,44 @@ const connectKnowledge = () => {
   knowledge.value = !knowledge.value;
 };
 
+const ensureAgentSelected = () => {
+  if (selectedAgent.value) return true;
+  if (defaultAgent.value) {
+    chatService.setAgentDetail(defaultAgent.value);
+    return true;
+  }
+  message.warning("暂无可用智能体");
+  return false;
+};
+
 const handleEnter = (e: KeyboardEvent) => {
+  if (mentionOpen.value) {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const direction = e.key === "ArrowDown" ? 1 : -1;
+      const length = filteredAgents.value.length;
+      if (length) {
+        activeAgentIndex.value =
+          (activeAgentIndex.value + direction + length) % length;
+      }
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      mentionOpen.value = false;
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const agent = filteredAgents.value[activeAgentIndex.value];
+      if (agent) selectAgent(agent);
+      return;
+    }
+  }
   if (e.key === "Enter") {
     e.preventDefault();
     if (!chatInput.value.trim()) return;
+    if (!ensureAgentSelected()) return;
     emit("stopMessage");
     emit(
       "sendMessage",
@@ -213,6 +368,7 @@ const handleEnter = (e: KeyboardEvent) => {
 };
 
 const sendQuestion = () => {
+  if (!ensureAgentSelected()) return;
   emit(
     "sendMessage",
     chatInput.value,
@@ -332,6 +488,68 @@ const handleFileBeforeUpload = async (
   width: 100%;
   height: 100%;
 
+  .agent-mention-menu {
+    position: absolute;
+    z-index: 20;
+    bottom: calc(100% - 4px);
+    left: 16px;
+    width: min(320px, calc(100% - 32px));
+    max-height: 280px;
+    padding: 6px;
+    overflow-y: auto;
+    border: 1px solid var(--app-border-subtle);
+    border-radius: 16px;
+    background: var(--app-surface-solid);
+    box-shadow: var(--app-shadow-float);
+  }
+
+  .agent-mention-option {
+    display: flex;
+    width: 100%;
+    min-height: 48px;
+    padding: 8px 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    border: 0;
+    border-radius: 10px;
+    color: var(--app-text);
+    text-align: left;
+    background: transparent;
+    cursor: pointer;
+
+    &:hover,
+    &.active {
+      background: var(--app-primary-soft);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--app-primary);
+      outline-offset: -2px;
+    }
+  }
+
+  .agent-option-name {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .agent-option-description {
+    width: 100%;
+    overflow: hidden;
+    color: var(--app-text-secondary);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .agent-mention-empty {
+    padding: 18px 12px;
+    color: var(--app-text-tertiary);
+    font-size: 13px;
+    text-align: center;
+  }
+
   .agent-input-tip {
     position: absolute;
     bottom: 0;
@@ -368,6 +586,7 @@ const handleFileBeforeUpload = async (
 
   :deep(.ant-sender-content) {
     flex: 1;
+    align-items: flex-start;
     padding-bottom: 0;
 
     .ant-input {

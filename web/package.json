@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "prepare": "npm run hooks:install",
+    "hooks:install": "git -C .. config core.hooksPath .githooks",
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
     "test": "vitest run",

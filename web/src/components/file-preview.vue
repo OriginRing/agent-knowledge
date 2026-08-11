@@ -6,7 +6,6 @@ import {
   cadPlugin,
   drawingPlugin,
   emailPlugin,
-  fallbackPlugin,
   gisPlugin,
   imagePlugin,
   model3dPlugin,
@@ -15,6 +14,7 @@ import {
   textPlugin,
   videoPlugin,
   ofdPlugin,
+  fallbackPlugin,
 } from "@open-file-viewer/core";
 import "@open-file-viewer/core/style.css";
 import { ref, watchEffect } from "vue";
@@ -46,8 +46,8 @@ const plugins = [
   cadPlugin(),
   model3dPlugin(),
   gisPlugin(),
-  fallbackPlugin(),
   ofdPlugin(),
+  fallbackPlugin(),
 ];
 
 const close = () => emit("close");

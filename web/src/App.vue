@@ -34,7 +34,13 @@ const workspaceThemeConfig = computed(() => ({
     colorSuccess: themeStore.isDark ? "#72d8b5" : "#39a986",
     colorWarning: themeStore.isDark ? "#ffc18c" : "#df8749",
     colorBgLayout: themeStore.isDark ? "#171625" : "#f6f5ff",
-    colorBgContainer: themeStore.isDark ? "#242238" : "#ffffff",
+    colorBgContainer: themeStore.backgroundImageUrl
+      ? themeStore.isDark
+        ? "rgba(36, 34, 56, 0.68)"
+        : "rgba(255, 255, 255, 0.68)"
+      : themeStore.isDark
+        ? "#242238"
+        : "#ffffff",
     colorBorder: themeStore.isDark ? "#3b3854" : "#e7e4f5",
     borderRadius: 14,
     borderRadiusLG: 18,
@@ -74,6 +80,12 @@ const workspaceThemeConfig = computed(() => ({
 
 const customStyle = computed(() => ({
   color: token.value.colorText,
+}));
+
+const workspaceStyle = computed(() => ({
+  "--workspace-bg-image": themeStore.backgroundImageUrl
+    ? `url("${themeStore.backgroundImageUrl}")`
+    : "none",
 }));
 
 const customHeaderStyle = computed(() => ({
@@ -122,7 +134,16 @@ watch(() => themeStore.isDark, applyTheme);
   <a-config-provider :theme="themeConfig">
     <Login />
     <a-config-provider :theme="workspaceThemeConfig">
-      <Split class="app-workspace" value="0.5" :disable="disable" :min="0.2">
+      <Split
+        :class="[
+          'app-workspace',
+          { 'has-background-image': themeStore.backgroundImageUrl },
+        ]"
+        :style="workspaceStyle"
+        value="0.5"
+        :disable="disable"
+        :min="0.2"
+      >
         <template #left>
           <a-layout class="workspace-layout" :style="customStyle">
             <div :class="['left-wrapper', { 'left-collapsed': !historyView }]">

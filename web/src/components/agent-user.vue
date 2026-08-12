@@ -15,24 +15,32 @@
               个人信息
             </a-flex>
           </a-menu-item>
-          <a-menu-item>
+          <a-menu-item @click="openBackgroundPicker">
             <a-flex align="center" justify="space-between">
               <a-flex align="center" gap="small">
                 <SkinOutlined />
                 主题
               </a-flex>
-              <a-switch
-                v-model:checked="themeSwitch"
-                size="small"
-                @change="changeTheme"
+              <span
+                class="theme-switch-control"
+                @click.stop
+                @mousedown.stop
+                @keydown.stop
               >
-                <template #checkedChildren>
-                  <Iconfont type="icon-sunyardsun" />
-                </template>
-                <template #unCheckedChildren>
-                  <Iconfont type="icon-sunyarddark" />
-                </template>
-              </a-switch>
+                <a-switch
+                  v-model:checked="themeSwitch"
+                  size="small"
+                  aria-label="切换明暗主题"
+                  @change="changeTheme"
+                >
+                  <template #checkedChildren>
+                    <Iconfont type="icon-sunyardsun" />
+                  </template>
+                  <template #unCheckedChildren>
+                    <Iconfont type="icon-sunyarddark" />
+                  </template>
+                </a-switch>
+              </span>
             </a-flex>
           </a-menu-item>
           <a-menu-item @click.stop="remove">
@@ -192,6 +200,8 @@
       </a-flex>
     </template>
   </a-modal>
+
+  <BackgroundPickerModal v-model:open="backgroundPickerOpen" />
 </template>
 
 <script setup lang="ts">
@@ -209,12 +219,14 @@ import httpClient from "@view/services/http";
 import type { UserInterface } from "@view/interfaces/user-interface";
 import { validatePasswordChange } from "@view/utils/profile";
 import Iconfont from "@view/components/iconfont.vue";
+import BackgroundPickerModal from "@view/components/background-picker-modal.vue";
 import { useThemeStore } from "@view/stores/theme";
 
 const chatService = useChatStore();
 const themeService = useThemeStore();
 const user = ref<Partial<UserInterface>>({});
 const profileOpen = ref(false);
+const backgroundPickerOpen = ref(false);
 const editing = ref(false);
 const saving = ref(false);
 const avatarUploading = ref(false);
@@ -234,6 +246,10 @@ const form = reactive({
 
 const changeTheme = () => {
   themeService.setToggleDark(!themeSwitch.value);
+};
+
+const openBackgroundPicker = () => {
+  backgroundPickerOpen.value = true;
 };
 
 const validatePassword = async () => {
@@ -407,6 +423,11 @@ onMounted(() => {
 }
 .memory-help {
   margin-left: 12px;
+}
+
+.theme-switch-control {
+  display: inline-flex;
+  align-items: center;
 }
 
 :deep(.ant-descriptions-view) {

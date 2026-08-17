@@ -59,8 +59,15 @@
             </p>
             <a-typography v-else :id="item.key">
               <div
-                class="chat-content markdown-body assistant-message"
-                v-html="renderMarkdown(item.content)"
+                :class="[
+                  'chat-content markdown-body assistant-message',
+                  { 'is-streaming': item.complete === false && item.content },
+                ]"
+                v-html="
+                  item.complete === false && item.content
+                    ? renderStreamingMarkdown(item.content)
+                    : renderMarkdown(item.content)
+                "
               ></div>
             </a-typography>
           </template>
@@ -146,7 +153,10 @@ import {
 import ChatInput from "@view/components/chat-input/index.vue";
 import ChatThoughtChain from "@view/components/chat-thought-chain.vue";
 import { useChatStore } from "@view/stores/chat";
-import { renderMarkdown } from "@view/utils/typewriter";
+import {
+  renderMarkdown,
+  renderStreamingMarkdown,
+} from "@view/utils/typewriter";
 import { createChatSession } from "@view/utils/random";
 import { saveDocx } from "@view/utils/save-file";
 import { copyToClipboard } from "@view/utils/copy";
@@ -557,6 +567,23 @@ onMounted(() => {
   min-width: min(560px, 62vw);
   color: var(--app-text);
   background: var(--app-surface-solid);
+
+  &.is-streaming :deep(.streaming-text-tail) {
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 14%,
+      rgba(0, 0, 0, 0.72) 48%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 14%,
+      rgba(0, 0, 0, 0.72) 48%,
+      transparent 100%
+    );
+  }
 }
 
 .user-message {

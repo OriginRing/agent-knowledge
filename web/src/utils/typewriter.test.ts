@@ -3,7 +3,7 @@
 import { message } from "ant-design-vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { renderMarkdown } from "./typewriter";
+import { renderMarkdown, renderStreamingMarkdown } from "./typewriter";
 
 vi.mock("@antv/gpt-vis", () => ({
   GPTVis: class {
@@ -72,5 +72,32 @@ describe("Markdown 代码块", () => {
     expect(document.querySelector(".markdown-code-language")?.textContent).toBe(
       "text",
     );
+  });
+});
+
+describe("流式文字渐变", () => {
+  it("只为最后一段文字添加渐变尾巴", () => {
+    document.body.innerHTML = renderStreamingMarkdown(
+      "第一段\n\n最后一段正在流式输出文字",
+      6,
+    );
+
+    const tail = document.querySelector(".streaming-text-tail");
+    expect(tail?.textContent).toBe("流式输出文字");
+    expect(document.querySelectorAll(".streaming-text-tail")).toHaveLength(1);
+    expect(document.body.textContent).toContain(
+      "第一段\n最后一段正在流式输出文字",
+    );
+  });
+
+  it("不把代码块工具栏文字当作回答结尾", () => {
+    document.body.innerHTML = renderStreamingMarkdown(
+      "```ts\nconst answer = 42;\n```",
+      4,
+    );
+
+    expect(
+      document.querySelector(".streaming-text-tail")?.textContent,
+    ).toContain("42;");
   });
 });

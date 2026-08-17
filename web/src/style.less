@@ -181,10 +181,7 @@ a:focus-visible,
   background-repeat: no-repeat;
 
   .ant-layout-header,
-  .ant-layout-sider,
-  .ant-card,
-  .ant-dropdown-menu,
-  .ant-popover-inner {
+  .ant-layout-sider {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
@@ -197,12 +194,6 @@ a:focus-visible,
 
   .workspace-main .ant-layout-header {
     background: rgba(255, 255, 255, 0.5) !important;
-  }
-
-  .workspace-main .ant-sender {
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
   }
 }
 
@@ -222,10 +213,6 @@ a:focus-visible,
 
   .workspace-main .ant-layout-header {
     background: rgba(35, 33, 54, 0.52) !important;
-  }
-
-  .workspace-main .ant-sender {
-    background: rgba(36, 34, 56, 0.62);
   }
 }
 
@@ -255,185 +242,6 @@ a:focus-visible,
   background: rgba(57, 169, 134, 0.08);
 }
 
-/* Ant Design remains the interaction layer; these rules provide the product skin. */
-.app-workspace {
-  .ant-btn {
-    min-height: 44px;
-    border-radius: var(--app-radius-control);
-    box-shadow: none;
-    font-weight: 650;
-    transition:
-      color 180ms ease,
-      border-color 180ms ease,
-      background 180ms ease,
-      box-shadow 180ms ease,
-      transform 180ms ease;
-  }
-
-  .ant-btn-sm {
-    min-height: 36px;
-  }
-
-  .ant-btn-icon-only {
-    min-width: 44px;
-    padding-inline: 0;
-  }
-
-  .ant-btn:not(:disabled):active {
-    transform: scale(0.97);
-  }
-
-  .ant-btn-primary {
-    border-color: transparent;
-    background: linear-gradient(135deg, var(--app-primary), #8f85f5);
-    box-shadow: 0 4px 10px rgba(113, 103, 232, 0.2);
-  }
-
-  .ant-btn-default {
-    border-color: var(--app-border);
-    background: var(--app-surface);
-  }
-
-  .ant-btn-text,
-  .ant-btn-link {
-    border-color: transparent !important;
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
-  .ant-btn-default:not(:disabled):hover {
-    border-color: var(--app-border);
-    color: var(--app-primary);
-    background: var(--app-primary-soft);
-  }
-
-  .ant-btn-text:not(:disabled):hover,
-  .ant-btn-link:not(:disabled):hover {
-    border-color: transparent !important;
-    color: var(--app-primary-hover);
-    background: transparent !important;
-  }
-
-  .ant-input,
-  .ant-input-affix-wrapper,
-  .ant-input-search-button,
-  .ant-select-selector {
-    border-color: var(--app-border) !important;
-    border-radius: var(--app-radius-control) !important;
-    background: var(--app-surface-solid) !important;
-    box-shadow: none !important;
-  }
-
-  .ant-input,
-  .ant-input-affix-wrapper {
-    min-height: 44px;
-  }
-
-  .ant-input:hover,
-  .ant-input-affix-wrapper:hover,
-  .ant-select:hover .ant-select-selector {
-    border-color: var(--app-primary) !important;
-  }
-
-  .ant-input:focus,
-  .ant-input-focused,
-  .ant-input-affix-wrapper-focused,
-  .ant-select-focused .ant-select-selector {
-    border-color: var(--app-primary) !important;
-    box-shadow: var(--app-focus) !important;
-  }
-
-  .ant-select-selector {
-    min-height: 44px;
-    align-items: center;
-  }
-
-  .ant-card {
-    overflow: hidden;
-    border-color: var(--app-border-subtle);
-    border-radius: var(--app-radius-card);
-    background: var(--app-surface-solid);
-    box-shadow: var(--app-shadow-soft);
-    transition:
-      border-color 200ms ease,
-      box-shadow 200ms ease,
-      transform 200ms ease;
-  }
-
-  .ant-card:hover {
-    border-color: rgba(113, 103, 232, 0.28);
-    box-shadow: var(--app-shadow-hover);
-    transform: translateY(-2px);
-  }
-
-  .ant-card-head {
-    min-height: 54px;
-    border-bottom-color: var(--app-border-subtle);
-  }
-
-  .ant-card-head-title {
-    color: var(--app-text);
-    font-weight: 720;
-  }
-
-  .ant-tag {
-    padding: 3px 10px;
-    border-radius: var(--app-radius-pill);
-    font-weight: 650;
-  }
-
-  .ant-empty,
-  .ant-skeleton {
-    color: var(--app-text-secondary);
-  }
-
-  .ant-empty-normal .ant-empty-image {
-    opacity: 0.7;
-  }
-
-  .ant-dropdown-menu,
-  .ant-popover-inner {
-    padding: 8px;
-    border: 1px solid var(--app-border-subtle);
-    border-radius: 18px;
-    box-shadow: var(--app-shadow-float);
-  }
-
-  .ant-dropdown-menu-item,
-  .ant-menu-item {
-    min-height: 42px;
-    border-radius: 12px;
-  }
-
-  .ant-switch {
-    min-width: 40px;
-  }
-
-  .ant-divider {
-    border-color: var(--app-border-subtle);
-  }
-}
-
-body > .ant-modal-root .ant-modal-wrap:not(.auth-modal) {
-  .ant-modal-mask {
-    background: rgba(40, 35, 68, 0.34);
-    backdrop-filter: blur(4px);
-  }
-
-  .ant-modal-content {
-    border: 1px solid var(--app-border-subtle);
-    border-radius: 24px;
-    background: var(--app-surface-solid);
-    box-shadow: var(--app-shadow-float);
-  }
-
-  .ant-modal-title {
-    color: var(--app-text);
-    font-size: 20px;
-    font-weight: 750;
-  }
-}
-
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -458,10 +266,6 @@ html {
   .app-workspace::before,
   .app-workspace::after {
     display: none;
-  }
-
-  .app-workspace .ant-btn {
-    min-height: 42px;
   }
 }
 

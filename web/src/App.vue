@@ -30,51 +30,6 @@ const workspaceThemeConfig = computed(() => ({
   algorithm: themeStore.isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
   token: {
     colorPrimary: themeStore.isDark ? "#9f96ff" : "#7167e8",
-    colorInfo: themeStore.isDark ? "#9f96ff" : "#7167e8",
-    colorSuccess: themeStore.isDark ? "#72d8b5" : "#39a986",
-    colorWarning: themeStore.isDark ? "#ffc18c" : "#df8749",
-    colorBgLayout: themeStore.isDark ? "#171625" : "#f6f5ff",
-    colorBgContainer: themeStore.backgroundImageUrl
-      ? themeStore.isDark
-        ? "rgba(36, 34, 56, 0.68)"
-        : "rgba(255, 255, 255, 0.68)"
-      : themeStore.isDark
-        ? "#242238"
-        : "#ffffff",
-    colorBorder: themeStore.isDark ? "#3b3854" : "#e7e4f5",
-    borderRadius: 14,
-    borderRadiusLG: 18,
-    borderRadiusSM: 10,
-    controlHeight: 44,
-    controlHeightLG: 48,
-    controlHeightSM: 36,
-    fontFamily:
-      "ui-rounded, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    boxShadow:
-      "0 4px 12px rgba(74, 65, 135, 0.07), 0 1px 3px rgba(74, 65, 135, 0.04)",
-    boxShadowSecondary:
-      "0 10px 26px rgba(74, 65, 135, 0.14), 0 3px 8px rgba(74, 65, 135, 0.05)",
-  },
-  components: {
-    Button: {
-      borderRadius: 14,
-      borderRadiusLG: 16,
-      defaultShadow: "none",
-      primaryShadow: "0 4px 10px rgba(113, 103, 232, 0.2)",
-    },
-    Card: {
-      borderRadiusLG: 18,
-      boxShadowTertiary: "0 4px 12px rgba(74, 65, 135, 0.07)",
-    },
-    Input: {
-      activeShadow: "0 0 0 3px rgba(113, 103, 232, 0.14)",
-    },
-    Select: {
-      optionSelectedBg: themeStore.isDark ? "#353151" : "#eeecff",
-    },
-    Modal: {
-      borderRadiusLG: 24,
-    },
   },
 }));
 

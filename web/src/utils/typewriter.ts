@@ -188,3 +188,56 @@ export function renderMarkdown(content: string): string {
   const text = content.replace(/\\n/g, "\n");
   return md.render(text);
 }
+
+/**
+ * 渲染流式 Markdown，并让最新输出的一小段文字从实色自然淡出。
+ * 只处理最后一个文本节点，避免破坏 Markdown 生成的标签结构。
+ */
+export function renderStreamingMarkdown(
+  content: string,
+  tailLength = 12,
+): string {
+  const html = renderMarkdown(content);
+  if (!content || tailLength <= 0 || typeof document === "undefined") {
+    return html;
+  }
+
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const walker = document.createTreeWalker(
+    template.content,
+    NodeFilter.SHOW_TEXT,
+  );
+  let lastTextNode: Text | null = null;
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text;
+    const parent = node.parentElement;
+    if (
+      node.data.trim() &&
+      !parent?.closest("button, .markdown-code-toolbar, gpt-vis")
+    ) {
+      lastTextNode = node;
+    }
+  }
+
+  if (!lastTextNode) return html;
+
+  const characters = Array.from(lastTextNode.data);
+  const trailingWhitespace = lastTextNode.data.match(/\s*$/)?.[0] ?? "";
+  const visibleCharacterCount = Array.from(
+    lastTextNode.data.slice(
+      0,
+      lastTextNode.data.length - trailingWhitespace.length,
+    ),
+  ).length;
+  const tailStart = Math.max(0, visibleCharacterCount - tailLength);
+  const prefix = characters.slice(0, tailStart).join("");
+  const tail = characters.slice(tailStart).join("");
+  const tailElement = document.createElement("span");
+  tailElement.className = "streaming-text-tail";
+  tailElement.textContent = tail;
+
+  lastTextNode.replaceWith(document.createTextNode(prefix), tailElement);
+  return template.innerHTML;
+}

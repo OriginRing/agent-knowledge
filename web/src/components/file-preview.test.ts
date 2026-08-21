@@ -22,10 +22,12 @@ vi.mock("@open-file-viewer/vue", () => ({
       file: { type: Object, required: true },
       fileName: { type: String, required: true },
       plugins: { type: Array, required: true },
+      toolbar: { type: [Boolean, Object], default: undefined },
     },
     setup(_, { expose }) {
       expose({ reload: vi.fn() });
-      return () => h("div");
+      return () =>
+        h("div", [h("a", { class: "plugin-download", download: "test.txt" })]);
     },
   }),
 }));
@@ -38,6 +40,7 @@ vi.mock("@open-file-viewer/core", () => {
     cadPlugin: plugin("cad"),
     drawingPlugin: plugin("drawing"),
     emailPlugin: plugin("email"),
+    fallbackPlugin: plugin("fallback"),
     gisPlugin: plugin("gis"),
     imagePlugin: plugin("image"),
     model3dPlugin: plugin("model3d"),
@@ -67,6 +70,30 @@ describe("FilePreview", () => {
       .props("plugins") as Array<{ name: string }>;
 
     expect(plugins.map(({ name }) => name)).toContain("ofd");
-    expect(plugins.map(({ name }) => name)).not.toContain("fallback");
+    expect(
+      plugins.indexOf(plugins.find(({ name }) => name === "ofd")!),
+    ).toBeLessThan(
+      plugins.indexOf(plugins.find(({ name }) => name === "fallback")!),
+    );
+  });
+
+  it("disables download and print and blocks plugin download links", () => {
+    const wrapper = mount(FilePreview, {
+      props: { file: new File(["content"], "report.txt") },
+      global: {
+        plugins: [createPinia()],
+        stubs: { AButton: true },
+      },
+    });
+
+    const viewer = wrapper.getComponent({ name: "OpenFileViewer" });
+    expect(viewer.props("toolbar")).toEqual({
+      download: false,
+      print: false,
+    });
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    viewer.get("a.plugin-download").element.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
   });
 });

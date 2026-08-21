@@ -32,6 +32,10 @@ const themeService = useThemeStore();
 const theme = ref(true);
 const viewerRef = ref<{ reload: (target: File) => void } | null>(null);
 const file = ref(props.file);
+const toolbar = {
+  download: false,
+  print: false,
+};
 
 const plugins = [
   imagePlugin(),
@@ -52,6 +56,29 @@ const plugins = [
 
 const close = () => emit("close");
 
+const preventDownload = (event: MouseEvent) => {
+  if (!(event.target instanceof Element)) return;
+
+  const downloadTarget = event.target.closest(
+    'a[download], [data-action="download"], .ofv-asset-download',
+  );
+  const codeAction = event.target.closest<HTMLButtonElement>(
+    ".ofv-code-actions .ofv-code-action",
+  );
+  const isTextDownload =
+    codeAction !== null &&
+    Array.from(
+      codeAction.parentElement?.querySelectorAll<HTMLButtonElement>(
+        ".ofv-code-action",
+      ) ?? [],
+    ).indexOf(codeAction) === 2;
+
+  if (!downloadTarget && !isTextDownload) return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+};
+
 watchEffect(() => {
   theme.value = !themeService.getToggleDark;
 });
@@ -62,14 +89,14 @@ watchEffect(() => {
 </script>
 
 <template>
-  <div class="file-preview">
+  <div class="file-preview" @click.capture="preventDownload">
     <OpenFileViewer
       ref="viewerRef"
       :file="file"
       :file-name="file.name"
       height="100%"
       width="100%"
-      toolbar
+      :toolbar="toolbar"
       :theme="theme ? 'light' : 'dark'"
       :plugins="plugins"
     >
@@ -107,6 +134,13 @@ watchEffect(() => {
     z-index: 10;
     border: 1px solid var(--app-border-subtle);
     background: var(--app-surface);
+  }
+
+  :deep(a[download]),
+  :deep([data-action="download"]),
+  :deep(.ofv-asset-download),
+  :deep(.ofv-code-actions .ofv-code-action:nth-of-type(3)) {
+    display: none !important;
   }
 }
 

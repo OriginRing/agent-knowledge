@@ -15,13 +15,20 @@
       '--gpt-vis-text': token.colorText,
     }"
   >
+    <ChatMessageAnchors
+      :items="answer"
+      :active-key="activeAnchorKey"
+      @select="scrollToMessage"
+    />
     <div class="agent-content">
       <div class="chat">
         <bubble-list
-          :auto-scroll="true"
+          ref="bubbleListRef"
+          :auto-scroll="followBottom"
           :items="answer"
           :roles="roleConfig"
           :message-render="renderMarkdown"
+          @scroll="handleChatScroll"
         >
           <template #header="{ item }">
             <a-flex v-if="item.role === 'user'" vertical gap="8">
@@ -50,6 +57,9 @@
           <template #message="{ item }">
             <p
               v-if="item.role !== 'assistant'"
+              :id="
+                item.role === 'user' ? `chat-message-${item.key}` : undefined
+              "
               :class="[
                 'chat-content',
                 item.role === 'user' ? 'user-message' : 'system-message',
@@ -57,7 +67,7 @@
             >
               {{ item.content }}
             </p>
-            <a-typography v-else :id="item.key">
+            <a-typography v-else :id="`chat-message-${item.key}`">
               <div
                 :class="[
                   'chat-content markdown-body assistant-message',
@@ -124,6 +134,16 @@
           </template>
         </bubble-list>
       </div>
+      <button
+        v-show="showScrollBottom"
+        class="scroll-bottom-button"
+        type="button"
+        aria-label="回到底部并继续跟随对话"
+        title="回到底部"
+        @click="scrollToBottom"
+      >
+        <DownOutlined />
+      </button>
     </div>
     <div class="agent-input">
       <ChatInput
@@ -138,6 +158,7 @@
 import {
   computed,
   nextTick,
+  onBeforeUnmount,
   onMounted,
   reactive,
   ref,
@@ -147,11 +168,13 @@ import {
 import { BubbleList, theme } from "ant-design-x-vue";
 import {
   CopyOutlined,
-  SyncOutlined,
+  DownOutlined,
   DownloadOutlined,
+  SyncOutlined,
 } from "@ant-design/icons-vue";
 import ChatInput from "@view/components/chat-input/index.vue";
 import ChatThoughtChain from "@view/components/chat-thought-chain.vue";
+import ChatMessageAnchors from "@view/components/chat-message-anchors.vue";
 import { useChatStore } from "@view/stores/chat";
 import {
   renderMarkdown,
@@ -167,6 +190,7 @@ import type {
   KnowledgeDoc,
 } from "@view/interfaces/agent-interface";
 import { getFileExtUpper, splitUrlToFileArr } from "@view/utils/file";
+import { isChatScrolledToBottom } from "@view/utils/chat-scroll";
 import { createSseParser, upsertChatNode } from "@view/utils/sse";
 import { rehydrateHistoryMessages } from "@view/utils/chat-state";
 import {
@@ -187,6 +211,79 @@ const system: AgentChat = {
 const answer = ref<AgentChat[]>([system]);
 const sessionId = ref<string>("");
 const chatService = useChatStore();
+const bubbleListRef = ref<{
+  scrollTo: (options: {
+    key?: string;
+    offset?: number;
+    behavior?: "auto" | "smooth";
+    block?: "start" | "center" | "end" | "nearest";
+  }) => void;
+} | null>(null);
+const activeAnchorKey = ref<string>("");
+const followBottom = ref(true);
+const showScrollBottom = ref(false);
+let anchorFrame = 0;
+
+const questionMessages = computed(() =>
+  answer.value.filter((item) => item.role === "user"),
+);
+
+const scrollToMessage = (key: string) => {
+  activeAnchorKey.value = key;
+  followBottom.value = false;
+  showScrollBottom.value = true;
+  const reduceMotion = window.matchMedia?.(
+    "(prefers-reduced-motion: reduce)",
+  ).matches;
+  bubbleListRef.value?.scrollTo({
+    key,
+    behavior: reduceMotion ? "auto" : "smooth",
+    block: "start",
+  });
+};
+
+const scrollToBottom = () => {
+  followBottom.value = true;
+  showScrollBottom.value = false;
+  bubbleListRef.value?.scrollTo({
+    offset: Number.MAX_SAFE_INTEGER,
+    behavior: "auto",
+  });
+};
+
+const handleChatScroll = (event: Event) => {
+  updateActiveAnchor(event);
+  const container = event.currentTarget as HTMLElement;
+  const isAtBottom = isChatScrolledToBottom(container);
+
+  followBottom.value = isAtBottom;
+  showScrollBottom.value = !isAtBottom;
+};
+
+const updateActiveAnchor = (event: Event) => {
+  const container = event.currentTarget as HTMLElement;
+  window.cancelAnimationFrame(anchorFrame);
+  anchorFrame = window.requestAnimationFrame(() => {
+    const containerRect = container.getBoundingClientRect();
+    const activationLine =
+      containerRect.top + Math.min(96, containerRect.height * 0.25);
+    let currentKey = questionMessages.value[0]?.key ?? "";
+
+    for (const item of questionMessages.value) {
+      const target = document.getElementById(`chat-message-${item.key}`);
+      if (!target) continue;
+      if (target.getBoundingClientRect().top <= activationLine) {
+        currentKey = item.key;
+      } else {
+        break;
+      }
+    }
+
+    activeAnchorKey.value = currentKey;
+  });
+};
+
+onBeforeUnmount(() => window.cancelAnimationFrame(anchorFrame));
 
 const roleConfig = reactive({
   user: {
@@ -293,6 +390,7 @@ const sendMessage = async (
     status: "running",
   });
   await nextTick();
+  scrollToBottom();
   try {
     const response = await fetch("/agent/chat", {
       method: "POST",
@@ -412,6 +510,8 @@ watch(
     if (newVal !== oldVal) {
       answer.value = [system];
       sessionId.value = newVal;
+      followBottom.value = true;
+      showScrollBottom.value = false;
     }
   },
 );
@@ -419,8 +519,21 @@ watch(
 watchEffect(() => {
   if (chatService.getAgentHistoryDetail.length) {
     answer.value = rehydrateHistoryMessages(chatService.getAgentHistoryDetail);
+    followBottom.value = true;
+    showScrollBottom.value = false;
+    nextTick(scrollToBottom);
   }
 });
+
+watch(
+  questionMessages,
+  (messages) => {
+    if (!messages.some((item) => item.key === activeAnchorKey.value)) {
+      activeAnchorKey.value = messages[0]?.key ?? "";
+    }
+  },
+  { immediate: true },
+);
 
 onMounted(() => {
   sessionId.value = createChatSession();
@@ -428,6 +541,7 @@ onMounted(() => {
 </script>
 <style scoped lang="less">
 .agent-chat {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -436,6 +550,7 @@ onMounted(() => {
   padding: 0 36px 20px;
 
   .agent-content {
+    position: relative;
     flex: 1;
     height: 0;
     overflow: hidden;
@@ -478,6 +593,41 @@ onMounted(() => {
     :deep(.ant-bubble-dot) {
       padding: 12px 16px;
       color: var(--app-primary);
+    }
+
+    .scroll-bottom-button {
+      position: absolute;
+      z-index: 10;
+      bottom: 14px;
+      left: 50%;
+      display: inline-flex;
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--app-border-subtle);
+      border-radius: 50%;
+      color: var(--app-text-secondary);
+      background: var(--app-surface-solid);
+      box-shadow: var(--app-shadow-soft);
+      cursor: pointer;
+      transform: translateX(-50%);
+      transition:
+        color 160ms ease,
+        border-color 160ms ease,
+        transform 160ms ease;
+
+      &:hover {
+        border-color: var(--app-primary);
+        color: var(--app-primary);
+        transform: translateX(-50%) translateY(-1px);
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--app-primary);
+        outline-offset: 2px;
+      }
     }
   }
 

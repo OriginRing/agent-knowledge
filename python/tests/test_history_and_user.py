@@ -1,7 +1,9 @@
 import json
 import unittest
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
+from fastapi import Response
 from pydantic import ValidationError
 
 from agent.history_manager import HistoryManager
@@ -12,7 +14,7 @@ from models.user import (
     UserUpdateRequest,
 )
 from services.history_service import normalize_history_payload
-from services.user_service import register_user, update_user_password
+from services.user_service import login_user, register_user, update_user_password
 
 
 class HistoryManagerTest(unittest.TestCase):
@@ -241,6 +243,50 @@ class UserRoleTest(unittest.TestCase):
         self.assertEqual(result["code"], 0)
         self.assertEqual(result["data"]["role"], "user")
 
+    def test_login_token_expires_after_24_hours(self):
+        user = SimpleNamespace(
+            id=1,
+            username="100001",
+            userpassword="hashed",
+            role="user",
+            avatar=None,
+            nickname=None,
+            gender=None,
+            age=None,
+            memory=False,
+            created_at="2026-08-20 00:00:00",
+        )
+
+        class FakeQuery:
+            def filter_by(self, **_):
+                return self
+
+            def first(self):
+                return user
+
+        class FakeSession:
+            def query(self, *_):
+                return FakeQuery()
+
+            def close(self):
+                pass
+
+        with (
+            patch("services.user_service.get_session", return_value=FakeSession()),
+            patch("services.user_service.verify_password", return_value=True),
+            patch(
+                "services.user_service.create_access_token",
+                return_value="token",
+            ) as create_token,
+        ):
+            result = login_user("100001", "password")
+
+        self.assertEqual(result["code"], 0)
+        self.assertEqual(
+            create_token.call_args.kwargs["expires_delta"],
+            timedelta(hours=24),
+        )
+
     def test_existing_users_are_backfilled_during_migration(self):
         class ScalarResult:
             def scalar(self):
@@ -272,6 +318,25 @@ class UserRoleTest(unittest.TestCase):
         self.assertIn("ADD COLUMN role", sql)
         self.assertIn("UPDATE users SET role = 'user'", sql)
         self.assertTrue(session.committed)
+
+
+class AuthCookieTest(unittest.IsolatedAsyncioTestCase):
+    async def test_login_cookie_expires_after_24_hours(self):
+        from routers.auth import login as login_endpoint
+        from models.user import UserLoginRequest
+
+        response = Response()
+        request = UserLoginRequest(username="100001", password="password")
+        login_result = {
+            "code": 0,
+            "message": "登录成功",
+            "data": {"access_token": "token"},
+        }
+
+        with patch("routers.auth.login_user", return_value=login_result):
+            await login_endpoint(request, response)
+
+        self.assertIn("Max-Age=86400", response.headers["set-cookie"])
 
 
 class AgentSkillMigrationTest(unittest.TestCase):

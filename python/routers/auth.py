@@ -9,6 +9,7 @@ from models.user import (
     ApiResponse,
 )
 from services.user_service import (
+    ACCESS_TOKEN_EXPIRE_SECONDS,
     register_user,
     login_user,
     decode_token,
@@ -43,7 +44,7 @@ async def login(request: UserLoginRequest, response: Response):
             httponly=True,
             secure=False,
             samesite="lax",
-            max_age=1800
+            max_age=ACCESS_TOKEN_EXPIRE_SECONDS
         )
     return result
 

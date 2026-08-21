@@ -7,7 +7,7 @@ from models.user import UserRegisterRequest, UserResponse, UserUpdateRequest
 
 SECRET_KEY = "your-secret-key-keep-it-safe-in-production"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_SECONDS = 24 * 60 * 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -130,7 +130,7 @@ def login_user(username: str, userpassword: str):
             created_at=str(user.created_at)
         )
         
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token_expires = timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS)
         access_token = create_access_token(
             data={"sub": user.username, "id": user.id},
             expires_delta=access_token_expires

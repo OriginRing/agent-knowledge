@@ -41,7 +41,9 @@
     <a-flex v-if="isHistoryPage" align="center" vertical>
       <h3>管理对话</h3>
     </a-flex>
-    <div />
+    <div class="header-actions">
+      <AppUpdateButton />
+    </div>
   </div>
 </template>
 <script setup lang="ts">
@@ -56,6 +58,7 @@ import { useChatStore } from "@view/stores/chat";
 import { AgentChat, AgentDetail } from "@view/interfaces/agent-interface";
 import { createChatSession } from "@view/utils/random";
 import httpClient from "@view/services/http";
+import AppUpdateButton from "@view/components/app-update-button.vue";
 
 const chatService = useChatStore();
 const router = useRouter();
@@ -137,6 +140,13 @@ onMounted(() => {
   .new-chat {
     border-color: var(--app-border-subtle);
     background: var(--app-surface-soft);
+  }
+
+  .header-actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: flex-end;
   }
 
   .chat-title {

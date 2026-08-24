@@ -11,6 +11,9 @@ import App from "./App.vue";
 import { createPinia } from "pinia";
 import router from "./router";
 import dayjs from "dayjs";
+import { clearAppVersionQueryParam } from "./utils/app-update";
+
+clearAppVersionQueryParam();
 
 // 将暗色主题 CSS 作用域限定到 :root.dark 下
 const scopedDarkCss = darkMarkdownCss

@@ -46,6 +46,12 @@ describe("Markdown 代码块", () => {
         .querySelector<HTMLButtonElement>(".markdown-code-copy")
         ?.getAttribute("aria-label"),
     ).toBe("复制代码");
+    expect(document.querySelector(".markdown-code-copy")?.textContent).toBe("");
+    expect(
+      document
+        .querySelector<HTMLButtonElement>(".markdown-code-edit")
+        ?.getAttribute("aria-label"),
+    ).toBe("编辑代码");
   });
 
   it("复制代码并展示成功状态", async () => {
@@ -62,8 +68,17 @@ describe("Markdown 代码块", () => {
       expect(button?.dataset.copied).toBe("true");
     });
 
-    expect(button?.textContent).toContain("已复制");
+    expect(button?.textContent).toBe("");
+    expect(button?.getAttribute("aria-label")).toBe("代码已复制");
     expect(message.success).toHaveBeenCalledWith("已复制");
+  });
+
+  it("点击编辑按钮时暂不执行后续逻辑", () => {
+    document.body.innerHTML = renderMarkdown("```js\nconst n = 1;\n```");
+    document.querySelector<HTMLButtonElement>(".markdown-code-edit")?.click();
+
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.querySelector("code")?.textContent).toBe("const n = 1;\n");
   });
 
   it("未标注语言时展示 text", () => {

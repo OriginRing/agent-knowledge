@@ -1,4 +1,3 @@
-import "./utils/prism-global";
 import { createApp } from "vue";
 import Antd from "ant-design-vue";
 import AntdX from "ant-design-x-vue";

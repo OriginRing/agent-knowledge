@@ -58,14 +58,20 @@
     white-space: nowrap;
   }
 
-  .markdown-code-copy {
+  .markdown-code-actions {
     display: inline-flex;
-    min-width: 72px;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .markdown-code-copy,
+  .markdown-code-edit {
+    display: inline-flex;
+    width: 36px;
     min-height: 36px;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 0 10px;
+    padding: 0;
     border: 0;
     border-radius: 8px;
     color: var(--markdown-code-muted);
@@ -102,7 +108,8 @@
   }
 
   .markdown-code-copy-icon,
-  .markdown-code-check-icon {
+  .markdown-code-check-icon,
+  .markdown-code-edit svg {
     width: 16px;
     height: 16px;
     flex: 0 0 auto;
@@ -115,6 +122,16 @@
 
   .markdown-code-copy[data-copied="true"] .markdown-code-check-icon {
     display: block;
+  }
+}
+
+@media (max-width: 640px) {
+  .markdown-body {
+    .markdown-code-copy,
+    .markdown-code-edit {
+      width: 44px;
+      min-height: 44px;
+    }
   }
 }
 

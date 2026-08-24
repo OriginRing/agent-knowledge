@@ -9,9 +9,7 @@ const prismComponentsModulePlugin = () => ({
   enforce: "pre" as const,
   transform(code: string, id: string) {
     const moduleId = id.split("?", 1)[0].replaceAll("\\", "/");
-    const isPrismComponent = moduleId.includes(
-      "/prismjs/components/prism-",
-    );
+    const isPrismComponent = moduleId.includes("/prismjs/components/prism-");
     const isPrismCore = /\/prism-core(?:\.min)?\.js$/.test(moduleId);
 
     if (!isPrismComponent || isPrismCore) return null;

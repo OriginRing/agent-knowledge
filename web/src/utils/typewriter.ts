@@ -106,10 +106,17 @@ if (!customElements.get("gpt-vis")) {
 export class MarkdownCodeBlockElement extends HTMLElement {
   private _feedbackTimer?: number;
 
-  private readonly handleCopy = async (event: Event) => {
-    const button = (event.target as Element | null)?.closest<HTMLButtonElement>(
-      ".markdown-code-copy",
+  private readonly handleClick = async (event: Event) => {
+    const target = event.target as Element | null;
+    const editButton = target?.closest<HTMLButtonElement>(
+      ".markdown-code-edit",
     );
+    if (editButton) {
+      this.handleEdit();
+      return;
+    }
+
+    const button = target?.closest<HTMLButtonElement>(".markdown-code-copy");
     const code = this.querySelector("code");
     if (!button || !code || button.disabled) return;
 
@@ -120,23 +127,27 @@ export class MarkdownCodeBlockElement extends HTMLElement {
 
     button.dataset.copied = "true";
     button.setAttribute("aria-label", "代码已复制");
-    const label = button.querySelector("span");
-    if (label) label.textContent = "已复制";
+    button.title = "代码已复制";
 
     window.clearTimeout(this._feedbackTimer);
     this._feedbackTimer = window.setTimeout(() => {
       button.dataset.copied = "false";
       button.setAttribute("aria-label", "复制代码");
-      if (label) label.textContent = "复制";
+      button.title = "复制代码";
     }, 2000);
   };
 
+  private readonly handleEdit = () => {
+    // 编辑逻辑后续补充。
+    console.log(111);
+  };
+
   connectedCallback() {
-    this.addEventListener("click", this.handleCopy);
+    this.addEventListener("click", this.handleClick);
   }
 
   disconnectedCallback() {
-    this.removeEventListener("click", this.handleCopy);
+    this.removeEventListener("click", this.handleClick);
     window.clearTimeout(this._feedbackTimer);
   }
 }
@@ -175,7 +186,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const escapedLanguage = md.utils.escapeHtml(language);
   const code = defaultFence(tokens, idx, options, env, self);
 
-  return `<markdown-code-block class="markdown-code-block"><div class="markdown-code-toolbar"><span class="markdown-code-language">${escapedLanguage}</span><button class="markdown-code-copy" type="button" aria-label="复制代码" title="复制代码" data-copied="false"><svg class="markdown-code-copy-icon" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg><svg class="markdown-code-check-icon" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="m9 16.2-4.2-4.2-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2Z"/></svg><span>复制</span></button></div>${code}</markdown-code-block>`;
+  return `<markdown-code-block class="markdown-code-block"><div class="markdown-code-toolbar"><span class="markdown-code-language">${escapedLanguage}</span><div class="markdown-code-actions"><button class="markdown-code-edit" type="button" aria-label="编辑代码" title="编辑代码"><svg aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M3 17.3V21h3.7L17.8 9.9l-3.7-3.7L3 17.3Zm17.7-10.2a1 1 0 0 0 0-1.4l-2.4-2.4a1 1 0 0 0-1.4 0L15 5.2l3.7 3.7 2-1.8Z"/></svg></button><button class="markdown-code-copy" type="button" aria-label="复制代码" title="复制代码" data-copied="false"><svg class="markdown-code-copy-icon" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg><svg class="markdown-code-check-icon" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="m9 16.2-4.2-4.2-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2Z"/></svg></button></div></div>${code}</markdown-code-block>`;
 };
 
 /**

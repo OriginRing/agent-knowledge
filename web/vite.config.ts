@@ -44,6 +44,13 @@ export default defineConfig({
       "@view": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    rolldownOptions: {
+      transform: {
+        target: "chrome92",
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

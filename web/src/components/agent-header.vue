@@ -42,6 +42,7 @@
       <h3>管理对话</h3>
     </a-flex>
     <div class="header-actions">
+      <GlassMagnifier />
       <AppUpdateButton />
     </div>
   </div>
@@ -59,6 +60,7 @@ import { AgentChat, AgentDetail } from "@view/interfaces/agent-interface";
 import { createChatSession } from "@view/utils/random";
 import httpClient from "@view/services/http";
 import AppUpdateButton from "@view/components/app-update-button.vue";
+import GlassMagnifier from "@view/components/glass-magnifier.vue";
 
 const chatService = useChatStore();
 const router = useRouter();
@@ -144,6 +146,7 @@ onMounted(() => {
 
   .header-actions {
     display: flex;
+    gap: 8px;
     flex-shrink: 0;
     align-items: center;
     justify-content: flex-end;

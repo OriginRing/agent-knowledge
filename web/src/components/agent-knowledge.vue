@@ -102,6 +102,7 @@ import { message, theme, UploadProps } from "ant-design-vue";
 import { reactive, ref } from "vue";
 import { useChatStore } from "@view/stores/chat";
 import { createChatSession } from "@view/utils/random";
+import { createChatLocation } from "@view/utils/chat-route";
 import { useRouter } from "vue-router";
 import httpClient from "@view/services/http";
 
@@ -211,9 +212,7 @@ const clearKnowledge = async () => {
 };
 
 const newConversation = () => {
-  if (router.currentRoute.value.path !== "/") {
-    router.push("/");
-  }
+  router.push(createChatLocation(chatService.getAgentDetail?.agentCode));
   chatService.setAgentHistoryDetail([]);
   const nextSessionId = createChatSession();
   chatService.setActiveHistorySession("");

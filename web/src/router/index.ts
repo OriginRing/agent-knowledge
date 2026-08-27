@@ -8,6 +8,10 @@ const router = createRouter({
   routes: [
     {
       path: "/",
+      redirect: (to) => ({ path: "/chat", query: to.query }),
+    },
+    {
+      path: "/chat",
       name: "Chat",
       component: () => import("@view/views/agent-chat/index.vue"),
     },

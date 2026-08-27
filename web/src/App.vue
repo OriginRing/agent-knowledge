@@ -9,11 +9,17 @@ import { useChatStore } from "@view/stores/chat";
 import Split from "@view/components/split.vue";
 import KnowledgeFile from "@view/views/knowledge-file/index.vue";
 import { createChatSession } from "@view/utils/random";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
+import {
+  CHAT_PATH,
+  createChatLocation,
+  getChatQueryValue,
+} from "@view/utils/chat-route";
 
 const { useToken } = theme;
 const { token } = useToken();
 const router = useRouter();
+const route = useRoute();
 
 const themeStore = useThemeStore();
 const chatService = useChatStore();
@@ -61,14 +67,42 @@ const applyTheme = (dark: boolean) => {
 const handleShortcut = (event: KeyboardEvent) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
-    if (router.currentRoute.value.path !== "/") {
-      router.push("/");
-    }
+    router.push(createChatLocation(chatService.getAgentDetail?.agentCode));
     chatService.setAgentHistoryDetail([]);
     chatService.setActiveHistorySession("");
     chatService.setNewConversation(createChatSession());
   }
 };
+
+watch(
+  () => chatService.getAgentDetail?.agentCode,
+  (agentCode) => {
+    if (!agentCode || route.path !== CHAT_PATH) return;
+    const routeAgentCode = getChatQueryValue(route.query.agendCode);
+    if (routeAgentCode === agentCode) return;
+    router.replace(
+      createChatLocation(
+        agentCode,
+        routeAgentCode ? undefined : getChatQueryValue(route.query.session),
+      ),
+    );
+  },
+);
+
+watch(
+  () => chatService.getActiveHistorySessionId,
+  (sessionId) => {
+    const agentCode = chatService.getAgentDetail?.agentCode;
+    if (!agentCode || route.path !== CHAT_PATH) return;
+    if (
+      getChatQueryValue(route.query.agendCode) === agentCode &&
+      getChatQueryValue(route.query.session) === sessionId
+    ) {
+      return;
+    }
+    router.replace(createChatLocation(agentCode, sessionId));
+  },
+);
 
 onMounted(() => {
   applyTheme(themeStore.isDark);

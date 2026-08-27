@@ -68,6 +68,7 @@ import type { HistoryInterface } from "@view/interfaces/history-interface";
 import { createChatSession } from "@view/utils/random";
 import { useRouter } from "vue-router";
 import httpClient from "@view/services/http";
+import { createChatLocation } from "@view/utils/chat-route";
 
 const { useToken } = theme;
 const { token } = useToken();
@@ -96,18 +97,16 @@ const selectHistory = async (key: string) => {
     chatService.setActiveHistorySession(history.session_id);
     chatService.setNewConversation(history.session_id);
     chatService.setAgentHistoryDetail(history.records);
-    if (router.currentRoute.value.path !== "/") {
-      await router.push("/");
-    }
+    await router.push(
+      createChatLocation(history.agent_code, history.session_id),
+    );
   } else {
     chatService.setAgentHistoryDetail([]);
   }
 };
 
 const newConversation = () => {
-  if (router.currentRoute.value.path !== "/") {
-    router.push("/");
-  }
+  router.push(createChatLocation(chatService.getAgentDetail?.agentCode));
   chatService.setAgentHistoryDetail([]);
   const nextSessionId = createChatSession();
   chatService.setActiveHistorySession("");

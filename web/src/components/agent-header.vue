@@ -48,7 +48,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, ref, watchEffect } from "vue";
+import { computed, onMounted, ref, watch, watchEffect } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   FormOutlined,
@@ -61,6 +61,13 @@ import { createChatSession } from "@view/utils/random";
 import httpClient from "@view/services/http";
 import AppUpdateButton from "@view/components/app-update-button.vue";
 import GlassMagnifier from "@view/components/glass-magnifier.vue";
+import {
+  CHAT_PATH,
+  createChatLocation,
+  getChatQueryValue,
+  isHistoryForChatRoute,
+  resolveChatAgent,
+} from "@view/utils/chat-route";
 
 const chatService = useChatStore();
 const router = useRouter();
@@ -79,13 +86,82 @@ const historyHandle = (visible: boolean) => {
 };
 
 const newConversation = () => {
-  if (router.currentRoute.value.path !== "/") {
-    router.push("/");
-  }
+  router.push(createChatLocation(chatService.getAgentDetail?.agentCode));
   chatService.setAgentHistoryDetail([]);
   const nextSessionId = createChatSession();
   chatService.setActiveHistorySession("");
   chatService.setNewConversation(nextSessionId);
+};
+
+let routeSyncVersion = 0;
+
+const resetConversation = () => {
+  chatService.setAgentHistoryDetail([]);
+  chatService.setActiveHistorySession("");
+  chatService.setNewConversation(createChatSession());
+};
+
+const syncChatRoute = async () => {
+  if (route.path !== CHAT_PATH || !listAgent.value.length) return;
+
+  const syncVersion = ++routeSyncVersion;
+  const requestedAgentCode = getChatQueryValue(route.query.agendCode);
+  const requestedSessionId = getChatQueryValue(route.query.session);
+  const { agent: selectedAgent, invalid: hasInvalidAgent } = resolveChatAgent(
+    listAgent.value,
+    requestedAgentCode,
+  );
+  if (!selectedAgent) return;
+
+  if (chatService.getAgentDetail?.agentCode !== selectedAgent.agentCode) {
+    chatService.setAgentDetail(selectedAgent);
+  }
+
+  if (!requestedAgentCode || hasInvalidAgent) {
+    await router.replace(
+      createChatLocation(
+        selectedAgent.agentCode,
+        hasInvalidAgent ? undefined : requestedSessionId,
+      ),
+    );
+    if (hasInvalidAgent) resetConversation();
+    if (hasInvalidAgent || !requestedSessionId) return;
+  }
+
+  if (!requestedSessionId) {
+    if (
+      chatService.getActiveHistorySessionId ||
+      chatService.getAgentHistoryDetail.length
+    ) {
+      resetConversation();
+    }
+    return;
+  }
+
+  if (
+    chatService.getActiveHistorySessionId === requestedSessionId &&
+    chatService.getAgentHistoryDetail.length
+  ) {
+    return;
+  }
+
+  const res = await httpClient.post("/auth/history/detail", {
+    sessionId: requestedSessionId,
+  });
+  if (syncVersion !== routeSyncVersion) return;
+
+  if (
+    res.code === 0 &&
+    isHistoryForChatRoute(res.data, requestedSessionId, selectedAgent.agentCode)
+  ) {
+    chatService.setActiveHistorySession(requestedSessionId);
+    chatService.setNewConversation(requestedSessionId);
+    chatService.setAgentHistoryDetail(res.data.records || []);
+    return;
+  }
+
+  resetConversation();
+  await router.replace(createChatLocation(selectedAgent.agentCode));
 };
 
 const getAgentList = async () => {
@@ -96,13 +172,24 @@ const getAgentList = async () => {
     const defaultAgent =
       listAgent.value.find((item) => item.default) || listAgent.value[0];
     if (defaultAgent) {
-      chatService.setAgentDetail(defaultAgent);
+      if (route.path === CHAT_PATH) {
+        await syncChatRoute();
+      } else {
+        chatService.setAgentDetail(defaultAgent);
+      }
     }
   } else {
     listAgent.value = [];
     chatService.setAgentList([]);
   }
 };
+
+watch(
+  () => route.fullPath,
+  () => {
+    syncChatRoute();
+  },
+);
 
 watchEffect(() => {
   history.value = chatService.getAgentHistoryDetail as unknown as AgentChat[];

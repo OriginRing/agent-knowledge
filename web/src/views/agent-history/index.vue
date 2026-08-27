@@ -58,6 +58,7 @@ import { useRouter } from "vue-router";
 import { message } from "ant-design-vue";
 import httpClient from "@view/services/http";
 import dayjs from "dayjs";
+import { createChatLocation } from "@view/utils/chat-route";
 
 const chatService = useChatStore();
 const router = useRouter();
@@ -84,7 +85,9 @@ const selectHistory = async (key: string) => {
     chatService.setActiveHistorySession(history.session_id);
     chatService.setNewConversation(history.session_id);
     chatService.setAgentHistoryDetail(history.records);
-    await router.push("/");
+    await router.push(
+      createChatLocation(history.agent_code, history.session_id),
+    );
   } else {
     chatService.setAgentHistoryDetail([]);
   }

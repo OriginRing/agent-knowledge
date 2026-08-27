@@ -11,6 +11,8 @@ export class GPTVisElement extends HTMLElement {
   private _syntax = "";
   private _fullscreen = false;
   private _resizeFrame?: number;
+  private _resizeObserver?: ResizeObserver;
+  private _renderedWidth = 0;
 
   private readonly handleKeydown = (event: KeyboardEvent) => {
     if (event.key === "Escape" && this._fullscreen) {
@@ -20,20 +22,35 @@ export class GPTVisElement extends HTMLElement {
 
   private readonly handleResize = () => {
     if (!this._fullscreen) return;
+    this.scheduleRender();
+  };
+
+  private readonly handleContainerResize = (entries: ResizeObserverEntry[]) => {
+    if (this._fullscreen) return;
+    const width = Math.floor(entries[0]?.contentRect.width ?? 0);
+    if (width > 0 && width !== this._renderedWidth) this.scheduleRender();
+  };
+
+  private scheduleRender() {
     if (this._resizeFrame) window.cancelAnimationFrame(this._resizeFrame);
     this._resizeFrame = window.requestAnimationFrame(() => this.renderChart());
-  };
+  }
 
   connectedCallback() {
     this._syntax = decodeURIComponent(this.dataset.syntax ?? "");
     document.addEventListener("keydown", this.handleKeydown);
     window.addEventListener("resize", this.handleResize);
+    if (typeof ResizeObserver !== "undefined") {
+      this._resizeObserver = new ResizeObserver(this.handleContainerResize);
+      this._resizeObserver.observe(this);
+    }
     this.renderChart();
   }
 
   disconnectedCallback() {
     document.removeEventListener("keydown", this.handleKeydown);
     window.removeEventListener("resize", this.handleResize);
+    this._resizeObserver?.disconnect();
     if (this._resizeFrame) window.cancelAnimationFrame(this._resizeFrame);
     this._instance?.destroy();
     if (this._fullscreen) {
@@ -43,12 +60,14 @@ export class GPTVisElement extends HTMLElement {
 
   private renderChart() {
     this._instance?.destroy();
+    const containerWidth = Math.floor(this.getBoundingClientRect().width);
     const width = this._fullscreen
       ? Math.max(window.innerWidth - 32, 320)
-      : 800;
+      : containerWidth || 300;
     const height = this._fullscreen
       ? Math.max(window.innerHeight - 88, 320)
       : undefined;
+    this._renderedWidth = width;
 
     this._instance = new GPTVis({
       container: this,

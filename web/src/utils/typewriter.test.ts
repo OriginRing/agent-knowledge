@@ -5,8 +5,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderMarkdown, renderStreamingMarkdown } from "./typewriter";
 
+const gptVisMocks = vi.hoisted(() => ({
+  configs: [] as Array<{ width?: number }>,
+}));
+
 vi.mock("@antv/gpt-vis", () => ({
   GPTVis: class {
+    constructor(config: { width?: number }) {
+      gptVisMocks.configs.push(config);
+    }
+
     destroy() {}
     render() {}
   },
@@ -27,6 +35,7 @@ describe("Markdown 代码块", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.clearAllMocks();
+    gptVisMocks.configs.length = 0;
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText: vi.fn().mockResolvedValue(undefined) },
@@ -87,6 +96,18 @@ describe("Markdown 代码块", () => {
     expect(document.querySelector(".markdown-code-language")?.textContent).toBe(
       "text",
     );
+  });
+
+  it("GPT-Vis 使用容器宽度而不是固定宽度", () => {
+    const chart = document.createElement("gpt-vis");
+    chart.dataset.syntax = encodeURIComponent("vis column\ndata:");
+    vi.spyOn(chart, "getBoundingClientRect").mockReturnValue({
+      width: 640,
+    } as DOMRect);
+
+    document.body.append(chart);
+
+    expect(gptVisMocks.configs.at(-1)?.width).toBe(640);
   });
 });
 

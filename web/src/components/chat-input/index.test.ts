@@ -146,6 +146,28 @@ describe("chat input agent mention", () => {
     expect(editor.attributes("data-placeholder")).toBe("请输入...");
   });
 
+  it("inserts a line break with Shift+Enter and sends multiline text with Enter", async () => {
+    const wrapper = mount(ChatInput, { global: { plugins: [pinia] } });
+    const editor = wrapper.get(".agent-mention-editor");
+    const lineBreakEvent = new KeyboardEvent("keydown", {
+      key: "Enter",
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    editor.element.dispatchEvent(lineBreakEvent);
+
+    expect(lineBreakEvent.defaultPrevented).toBe(false);
+    expect(wrapper.emitted("sendMessage")).toBeUndefined();
+
+    editor.element.textContent = "第一行\n第二行";
+    await editor.trigger("input");
+    await editor.trigger("keydown", { key: "Enter" });
+
+    expect(wrapper.emitted("sendMessage")?.[0]?.[0]).toBe("第一行\n第二行");
+  });
+
   it("opens on @ and selects an agent with the keyboard", async () => {
     const wrapper = mount(ChatInput, { global: { plugins: [pinia] } });
     const input = wrapper.get(".agent-mention-editor");

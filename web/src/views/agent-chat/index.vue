@@ -738,6 +738,8 @@ onMounted(() => {
 
 .user-message {
   color: #fff;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .system-message {

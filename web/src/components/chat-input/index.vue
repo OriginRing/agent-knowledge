@@ -346,6 +346,7 @@ const handleEnter = (e: KeyboardEvent) => {
     }
   }
   if (e.key === "Enter") {
+    if (e.shiftKey || e.isComposing) return;
     e.preventDefault();
     if (!chatInput.value.trim()) return;
     if (!ensureAgentSelected()) return;

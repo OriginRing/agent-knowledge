@@ -4,20 +4,23 @@
     class="message-anchors"
     aria-label="对话位置导航"
   >
-    <ol class="message-anchor-list">
+    <ol class="message-anchor-list" @mouseleave="hoveredKey = undefined">
       <li v-for="anchor in anchors" :key="anchor.key">
         <button
           class="message-anchor"
           type="button"
           :class="{ 'is-active': anchor.key === activeKey }"
+          :style="{ '--anchor-scale': getAnchorScale(anchor.index) }"
           :aria-label="`定位到第 ${anchor.index} 个问题：${anchor.title}`"
           :aria-current="anchor.key === activeKey ? 'location' : undefined"
           @click="$emit('select', anchor.key)"
+          @mouseenter="hoveredKey = anchor.key"
+          @focus="focusedKey = anchor.key"
+          @blur="focusedKey = undefined"
         >
           <span class="message-anchor-line" aria-hidden="true"></span>
           <span class="message-anchor-preview" role="tooltip">
             <strong>{{ anchor.title }}</strong>
-            <span v-if="anchor.summary">{{ anchor.summary }}</span>
           </span>
         </button>
       </li>
@@ -26,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 
 import type { AgentChat } from "@view/interfaces/agent-interface";
 
@@ -38,6 +41,21 @@ const props = defineProps<{
 defineEmits<{
   select: [key: string];
 }>();
+
+const hoveredKey = ref<string>();
+const focusedKey = ref<string>();
+const waveIndex = computed(
+  () =>
+    anchors.value.find(
+      (anchor) => anchor.key === (hoveredKey.value ?? focusedKey.value),
+    )?.index,
+);
+const getAnchorScale = (index: number) => {
+  if (waveIndex.value === undefined) return 1;
+
+  const distance = Math.abs(index - waveIndex.value);
+  return [3, 2.375, 1.75, 1.25][distance] ?? 1;
+};
 
 const cleanPreviewText = (content: string) =>
   content
@@ -55,19 +73,11 @@ const anchors = computed(() =>
     .map((item, index) => {
       const preview = cleanPreviewText(item.content);
       const title = preview || "文件问题";
-      const titleLength = Math.min(24, title.length);
 
       return {
         key: item.key,
         index: index + 1,
-        title:
-          title.length > titleLength
-            ? `${title.slice(0, titleLength)}…`
-            : title,
-        summary:
-          preview.length > titleLength
-            ? preview.slice(titleLength).trim().slice(0, 80)
-            : "",
+        title: title,
       };
     }),
 );
@@ -122,7 +132,6 @@ const anchors = computed(() =>
     color: var(--app-text);
 
     .message-anchor-line {
-      width: 24px;
       background: currentcolor;
     }
   }
@@ -143,8 +152,10 @@ const anchors = computed(() =>
   height: 2px;
   border-radius: 999px;
   background: currentcolor;
+  transform: scaleX(var(--anchor-scale, 1));
+  transform-origin: left center;
   transition:
-    width 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
     background-color 180ms ease;
 }
 

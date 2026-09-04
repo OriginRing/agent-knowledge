@@ -35,6 +35,17 @@
         未找到匹配的智能体
       </div>
     </div>
+    <div v-if="selectedAgent?.slot?.length" class="agent-slots">
+      <button
+        v-for="(slot, index) in selectedAgent.slot"
+        :key="index"
+        type="button"
+        class="agent-slot-button"
+        @click="applySlot(slot.content)"
+      >
+        {{ slot.title }}
+      </button>
+    </div>
     <Sender
       v-model:value="chatInput"
       placeholder="请输入..."
@@ -49,6 +60,18 @@
       @keydown="handleEnter"
     >
       <template #header>
+        <div v-if="quoteContent" class="input-quote">
+          <span class="input-quote-content">{{ quoteContent }}</span>
+          <a-button
+            type="text"
+            size="small"
+            class="input-quote-close"
+            aria-label="移除引用"
+            @click="clearQuote"
+          >
+            <CloseOutlined />
+          </a-button>
+        </div>
         <a-flex v-if="uploadFiles.length" class="input-file">
           <a-flex class="input-file-scroll" gap="12">
             <a-flex
@@ -185,6 +208,7 @@ import {
   GlobalOutlined,
   PaperClipOutlined,
   CloseCircleOutlined,
+  CloseOutlined,
   ExclamationOutlined,
 } from "@ant-design/icons-vue";
 import { Sender } from "ant-design-x-vue";
@@ -212,6 +236,7 @@ const senderComponents = {
   input: AgentMentionInput as unknown as typeof Input.TextArea,
 };
 const chatInput = ref<string>("");
+const quoteContent = ref("");
 const chatService = useChatStore();
 const thinking = ref(true);
 const internet = ref(false);
@@ -243,6 +268,14 @@ const defaultAgent = computed(
     chatService.getAgentList[0],
 );
 
+watch(
+  [selectedAgent, defaultAgent],
+  ([selected, fallback]) => {
+    if (!selected && fallback) chatService.setAgentDetail(fallback);
+  },
+  { immediate: true },
+);
+
 const filteredAgents = computed(() => {
   const query = mentionQuery.value.trim().toLocaleLowerCase();
   if (!query) return chatService.getAgentList;
@@ -266,7 +299,12 @@ watch(chatInput, (value) => {
   }
   mentionStart.value = value.lastIndexOf("@");
   mentionQuery.value = match[1] || "";
-  activeAgentIndex.value = 0;
+  activeAgentIndex.value = Math.max(
+    0,
+    filteredAgents.value.findIndex(
+      (agent) => agent.agentCode === selectedAgent.value?.agentCode,
+    ),
+  );
   mentionOpen.value = true;
 });
 
@@ -288,6 +326,11 @@ const selectAgent = (agent: AgentDetail) => {
   }
   mentionOpen.value = false;
   mentionStart.value = -1;
+};
+
+const applySlot = (content: string) => {
+  mentionEditorApi.value?.insertSlot(content);
+  mentionOpen.value = false;
 };
 
 const clearAgent = () => {
@@ -321,6 +364,37 @@ const ensureAgentSelected = () => {
   return false;
 };
 
+const setQuote = (content: string) => {
+  quoteContent.value = content.trim();
+};
+
+const clearQuote = () => {
+  quoteContent.value = "";
+};
+
+const getMessageContent = () =>
+  [quoteContent.value, chatInput.value].filter(Boolean).join("\n\n");
+
+const sendCurrentQuestion = () => {
+  const content = getMessageContent();
+  if (!content && !uploadFiles.value.length) return;
+  if (!ensureAgentSelected()) return;
+  emit(
+    "sendMessage",
+    content,
+    uploadFiles.value
+      .map((v) => v.url)
+      .filter(Boolean)
+      .join(","),
+    thinking.value,
+    knowledge.value,
+    internet.value,
+  );
+  chatInput.value = "";
+  clearQuote();
+  uploadFiles.value = [];
+};
+
 const handleEnter = (e: KeyboardEvent) => {
   if (mentionOpen.value) {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -348,42 +422,18 @@ const handleEnter = (e: KeyboardEvent) => {
   if (e.key === "Enter") {
     if (e.shiftKey || e.isComposing) return;
     e.preventDefault();
-    if (!chatInput.value.trim()) return;
-    if (!ensureAgentSelected()) return;
+    if (!getMessageContent() && !uploadFiles.value.length) return;
     emit("stopMessage");
-    emit(
-      "sendMessage",
-      chatInput.value,
-      uploadFiles.value
-        .map((v) => v.url)
-        .filter(Boolean)
-        .join(","),
-      thinking.value,
-      knowledge.value,
-      internet.value,
-    );
-    chatInput.value = "";
-    uploadFiles.value = [];
+    sendCurrentQuestion();
     (e.target as HTMLElement)?.blur();
   }
 };
 
 const sendQuestion = () => {
-  if (!ensureAgentSelected()) return;
-  emit(
-    "sendMessage",
-    chatInput.value,
-    uploadFiles.value
-      .map((v) => v.url)
-      .filter(Boolean)
-      .join(","),
-    thinking.value,
-    knowledge.value,
-    internet.value,
-  );
-  chatInput.value = "";
-  uploadFiles.value = [];
+  sendCurrentQuestion();
 };
+
+defineExpose({ setQuote });
 
 const clearFile = (index: number) => {
   uploadFiles.value.splice(index, 1);
@@ -484,6 +534,32 @@ const handleFileBeforeUpload = async (
 };
 </script>
 <style lang="less" scoped>
+.agent-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.agent-slot-button {
+  border: 1px solid var(--app-primary);
+  border-radius: 6px;
+  padding: 3px 8px;
+  color: var(--app-text);
+  background: var(--app-primary-soft);
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
+  cursor: pointer;
+  text-align: left;
+  &:hover {
+    color: var(--app-primary);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--app-primary);
+    outline-offset: 2px;
+  }
+}
+
 .agent-input {
   position: relative;
   width: 100%;
@@ -616,6 +692,40 @@ const handleFileBeforeUpload = async (
       color: var(--app-primary-hover) !important;
       background: rgba(113, 103, 232, 0.14) !important;
     }
+  }
+}
+
+.input-quote {
+  display: flex;
+  min-width: 0;
+  margin: 8px 12px 0;
+  padding: 9px 8px 9px 12px;
+  align-items: center;
+  gap: 8px;
+  border-left: 3px solid var(--app-primary);
+  border-radius: 10px;
+  color: var(--app-text-secondary);
+  background: var(--app-primary-soft);
+}
+
+.input-quote-content {
+  flex: 1;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.input-quote-close {
+  flex: 0 0 auto;
+  min-width: 32px;
+  min-height: 32px;
+  color: var(--app-text-tertiary);
+
+  &:hover {
+    color: var(--app-text);
+    background: rgba(0, 0, 0, 0.06);
   }
 }
 

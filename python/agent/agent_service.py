@@ -1196,6 +1196,7 @@ class AgentService:
                     "agentCode": agent.agentcode,
                     "agentName": agent.agentname,
                     "agentValue": agent.model_name,
+                    "slot": agent.slot or [],
                     "model_type": agent.model_type,
                     "status": agent.status,
                     "description": agent.description,

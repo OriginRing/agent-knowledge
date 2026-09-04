@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Boolean
+from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Boolean, JSON
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.sql import func
 from db.sqlalchemy_connection import Base
@@ -41,6 +41,7 @@ class AgentList(Base):
         nullable=True,
         comment='智能体默认启用的技能',
     )
+    slot = Column(JSON, nullable=True, default=list, comment='智能体词槽模板')
     status = Column(Integer, default=1, comment='状态：0-禁用，1-启用')
     description = Column(Text, nullable=True, comment='描述')
     is_default = Column(Boolean, default=False, comment='是否默认')

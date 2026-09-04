@@ -1,6 +1,12 @@
 import { SafeAny } from "@view/interfaces/safe-any-interface";
 
+export interface AgentSlot {
+  title: string;
+  content: string;
+}
+
 export interface AgentDetail {
+  slot?: AgentSlot[];
   agentCode: string;
   agentName: string;
   description: string;

@@ -29,6 +29,8 @@
           :roles="roleConfig"
           :message-render="renderMarkdown"
           @scroll="handleChatScroll"
+          @mouseup="showSelectionActions"
+          @keyup="showSelectionActions"
         >
           <template #header="{ item }">
             <a-flex v-if="item.role === 'user'" vertical gap="8">
@@ -133,6 +135,19 @@
             </a-flex>
           </template>
         </bubble-list>
+        <div
+          v-if="selectionActions.visible"
+          class="selection-actions"
+          :style="{
+            left: `${selectionActions.left}px`,
+            top: `${selectionActions.top}px`,
+          }"
+        >
+          <a-button type="text" @click="quoteSelection">
+            <RollbackOutlined />
+            引用
+          </a-button>
+        </div>
       </div>
       <button
         v-show="showScrollBottom"
@@ -147,6 +162,7 @@
     </div>
     <div class="agent-input">
       <ChatInput
+        ref="chatInputRef"
         :support-stop="supportStop"
         @stop-message="stopMessage"
         @send-message="sendMessage"
@@ -171,6 +187,7 @@ import {
   DownOutlined,
   DownloadOutlined,
   SyncOutlined,
+  RollbackOutlined,
 } from "@ant-design/icons-vue";
 import ChatInput from "@view/components/chat-input/index.vue";
 import ChatThoughtChain from "@view/components/chat-thought-chain.vue";
@@ -219,6 +236,13 @@ const bubbleListRef = ref<{
     block?: "start" | "center" | "end" | "nearest";
   }) => void;
 } | null>(null);
+const chatInputRef = ref<{ setQuote: (content: string) => void } | null>(null);
+const selectionActions = reactive({
+  visible: false,
+  content: "",
+  left: 0,
+  top: 0,
+});
 const activeAnchorKey = ref<string>("");
 const followBottom = ref(true);
 const showScrollBottom = ref(false);
@@ -249,6 +273,44 @@ const scrollToBottom = () => {
     offset: Number.MAX_SAFE_INTEGER,
     behavior: "auto",
   });
+};
+
+const hideSelectionActions = () => {
+  selectionActions.visible = false;
+  selectionActions.content = "";
+};
+
+const showSelectionActions = () => {
+  window.requestAnimationFrame(() => {
+    const selection = window.getSelection();
+    const content = selection?.toString().trim() ?? "";
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : undefined;
+    const commonAncestor = range?.commonAncestorContainer;
+    const selectionElement = commonAncestor
+      ? commonAncestor.nodeType === Node.ELEMENT_NODE
+        ? (commonAncestor as Element)
+        : commonAncestor.parentElement
+      : null;
+    const selectionRoot = selectionElement?.closest(".chat-content");
+    const selectedInChat = Boolean(selectionRoot);
+    if (!content || !range || !selectedInChat) {
+      hideSelectionActions();
+      return;
+    }
+
+    const rect = range.getBoundingClientRect();
+    selectionActions.content = content;
+    selectionActions.left = rect.left + rect.width / 2;
+    selectionActions.top = Math.max(12, rect.top - 12);
+    selectionActions.visible = true;
+  });
+};
+
+const quoteSelection = () => {
+  if (!selectionActions.content) return;
+  chatInputRef.value?.setQuote(selectionActions.content);
+  window.getSelection()?.removeAllRanges();
+  hideSelectionActions();
 };
 
 const handleChatScroll = (event: Event) => {
@@ -627,6 +689,31 @@ onMounted(() => {
       &:focus-visible {
         outline: 2px solid var(--app-primary);
         outline-offset: 2px;
+      }
+    }
+  }
+
+  .selection-actions {
+    position: fixed;
+    z-index: 30;
+    display: flex;
+    padding: 4px;
+    border: 1px solid var(--app-border-subtle);
+    border-radius: 10px;
+    background: var(--app-surface-solid);
+    box-shadow: var(--app-shadow-float);
+    transform: translate(-50%, -100%);
+
+    :deep(.ant-btn) {
+      min-width: 76px;
+      min-height: 36px;
+      border-radius: 8px;
+      color: var(--app-text);
+      font-weight: 650;
+
+      &:hover {
+        color: var(--app-primary);
+        background: var(--app-primary-soft);
       }
     }
   }

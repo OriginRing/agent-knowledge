@@ -83,7 +83,7 @@ const inputAttrs = computed(() =>
 );
 const context = inject(agentMentionKey);
 const editorRef = ref<HTMLDivElement>();
-const mentionActive = ref(false);
+let hasMention = false;
 
 const getEditorText = () => {
   if (!editorRef.value) return "";
@@ -113,6 +113,11 @@ const setCaretToEnd = () => {
   selection.removeAllRanges();
   selection.addRange(range);
 };
+
+const hasAgentIdentity = (agent?: AgentDetail): agent is AgentDetail =>
+  typeof agent?.agentCode === "string" &&
+  Boolean(agent.agentCode.trim()) &&
+  Boolean(agent.agentName.trim());
 
 const createMentionNode = (agent: AgentDetail) => {
   const mention = document.createElement("span");
@@ -176,14 +181,14 @@ const removeCaretAnchors = () => {
 };
 
 const removeMention = () => {
+  hasMention = false;
   editorRef.value?.querySelector("[data-agent-mention]")?.remove();
-  mentionActive.value = false;
   removeCaretAnchors();
   emitValue();
 };
 
 const insertMention = (agent: AgentDetail, triggerLength: number) => {
-  if (!editorRef.value) return;
+  if (!editorRef.value || !hasAgentIdentity(agent)) return;
   editorRef.value.querySelector("[data-agent-mention]")?.remove();
   removeCaretAnchors();
   removeTrailingTrigger(triggerLength);
@@ -191,43 +196,124 @@ const insertMention = (agent: AgentDetail, triggerLength: number) => {
     createMentionNode(agent),
     document.createTextNode(CARET_ANCHOR),
   );
-  mentionActive.value = true;
+  hasMention = true;
   editorRef.value.normalize();
   editorRef.value.focus();
   setCaretToEnd();
   emitValue();
 };
 
-const editorApi: AgentMentionEditorApi = { insertMention, removeMention };
+const focusSlot = () => {
+  editorRef.value?.focus();
+  const slot = editorRef.value?.querySelector(".slot-placeholder");
+  const node = slot?.firstChild;
+  const selection = window.getSelection();
+  if (!node || !selection) {
+    setCaretToEnd();
+    return;
+  }
+  const range = document.createRange();
+  range.selectNodeContents(slot!);
+  selection.removeAllRanges();
+  selection.addRange(range);
+};
+
+const resetEditor = () => {
+  if (!editorRef.value) return;
+  const mention = editorRef.value.querySelector("[data-agent-mention]");
+  editorRef.value.replaceChildren();
+  if (mention)
+    editorRef.value.append(mention, document.createTextNode(CARET_ANCHOR));
+};
+
+// Only explicit agent templates create highlights. Typed/pasted text stays literal.
+const insertSlot = (content: string) => {
+  if (!editorRef.value) return;
+  resetEditor();
+  const parts = content.split(/(<<[^<>\n]+>>|\{\{[^{}\n]+\}\})/g);
+  parts.forEach((part, index) => {
+    if (index % 2 === 0) {
+      editorRef.value?.append(document.createTextNode(part));
+    } else {
+      const span = document.createElement("span");
+      span.className = `slot-placeholder ${part.startsWith("<<") ? "slot-angle" : "slot-brace"}`;
+      span.title = "请修改这里的值";
+      span.textContent = part.slice(2, -2);
+      editorRef.value?.append(span);
+    }
+  });
+  emitValue();
+  focusSlot();
+};
+
+const editorApi: AgentMentionEditorApi = {
+  insertMention,
+  removeMention,
+  insertSlot,
+};
 
 const syncValue = () => {
   if (!editorRef.value || getEditorText() === props.value) return;
-  const mention = editorRef.value.querySelector("[data-agent-mention]");
-  editorRef.value.replaceChildren();
-  if (mention) editorRef.value.append(mention);
-  if (mention) editorRef.value.append(document.createTextNode(CARET_ANCHOR));
+  resetEditor();
   editorRef.value.append(document.createTextNode(props.value));
 };
 
-watch(() => props.value, syncValue);
 watch(
-  () => context?.selectedAgent.value,
-  (agent) => {
-    const current = editorRef.value?.querySelector<HTMLElement>(
-      "[data-agent-mention]",
-    );
-    if (!agent) {
-      if (current) removeMention();
-    }
-  },
+  () => props.value,
+  () => syncValue(),
+);
+const syncMention = () => {
+  const editor = editorRef.value;
+  if (!editor) return;
+  const agent = context?.selectedAgent.value;
+  const current = editor.querySelector<HTMLElement>("[data-agent-mention]");
+  if (
+    !hasAgentIdentity(agent) ||
+    (agent.default && current?.dataset.agentMention !== agent.agentCode)
+  ) {
+    hasMention = false;
+    current?.remove();
+    removeCaretAnchors();
+    return;
+  }
+  if (
+    current?.dataset.agentMention === agent.agentCode &&
+    current.firstChild?.textContent === `@${agent.agentName}`
+  )
+    return;
+  const mention = createMentionNode(agent);
+  if (current) current.replaceWith(mention);
+  else editor.prepend(mention, document.createTextNode(CARET_ANCHOR));
+  hasMention = true;
+};
+
+watch(
+  () => [
+    context?.selectedAgent.value?.agentCode,
+    context?.selectedAgent.value?.agentName,
+    context?.selectedAgent.value?.default,
+  ],
+  syncMention,
+  { flush: "post" },
 );
 
-const handleInput = () => {
-  const mentionExists = editorRef.value?.querySelector("[data-agent-mention]");
-  if (mentionActive.value && !mentionExists) {
-    mentionActive.value = false;
+const handleInput = (event?: Event) => {
+  const editor = editorRef.value;
+  const mentionRemoved =
+    hasMention && !editor?.querySelector("[data-agent-mention]");
+  if (mentionRemoved) {
+    hasMention = false;
     removeCaretAnchors();
     context?.clearAgent();
+  }
+  // Browsers leave <br>, empty blocks or styled spans after deleting all content.
+  // Clean only deletion results, so intentional Shift+Enter line breaks survive.
+  const isDeletion = (event as InputEvent | undefined)?.inputType?.startsWith(
+    "delete",
+  );
+  if (editor && (mentionRemoved || isDeletion) && !getEditorText().trim()) {
+    resetEditor();
+    setCaretToEnd();
   }
   emitValue();
 };
@@ -288,6 +374,7 @@ const focusEditor = (event?: MouseEvent) => {
 
 onMounted(() => {
   syncValue();
+  syncMention();
   if (context) context.editorApi.value = editorApi;
 });
 
@@ -329,6 +416,24 @@ defineExpose({
     content: attr(data-placeholder);
     pointer-events: none;
   }
+}
+
+:deep(.slot-placeholder) {
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+:deep(.slot-angle) {
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
+  box-shadow: inset 0 -1px var(--app-primary);
+}
+
+:deep(.slot-brace) {
+  background: var(--app-peach-soft);
+  color: var(--app-text);
+  outline: 1px dashed var(--app-peach);
+  outline-offset: -1px;
 }
 
 :deep(.selected-agent) {

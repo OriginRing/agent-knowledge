@@ -11,6 +11,7 @@ export interface AgentMentionContext {
 export interface AgentMentionEditorApi {
   insertMention: (agent: AgentDetail, triggerLength: number) => void;
   removeMention: () => void;
+  insertSlot: (content: string) => void;
 }
 
 export const agentMentionKey: InjectionKey<AgentMentionContext> = Symbol(

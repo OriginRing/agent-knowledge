@@ -7,6 +7,7 @@ def init_tables():
     create_tables('agent-knowledge')
     ensure_user_role()
     ensure_agent_default_skill()
+    ensure_agent_slot()
     ensure_history_longtext()
     init_default_agents()
 
@@ -68,6 +69,41 @@ def ensure_agent_default_skill():
             session.close()
 
 
+SALES_AGENT_SLOTS = [
+    {
+        "title": "查询指定人员今年的销售额",
+        "content": "查询<<xxx>>今年的销售额，并用柱状图展示",
+    }
+]
+
+
+def ensure_agent_slot():
+    """兼容已有数据库；仅向尚未配置词槽的销售助手填充模板。"""
+    import json
+
+    session = get_session('agent-knowledge')
+    try:
+        column_exists = session.execute(text(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'agent_list' "
+            "AND COLUMN_NAME = 'slot'"
+        )).scalar()
+        if not column_exists:
+            session.execute(text(
+                "ALTER TABLE agent_list ADD COLUMN slot JSON NULL COMMENT '智能体词槽模板'"
+            ))
+        session.execute(text(
+            "UPDATE agent_list SET slot = :slot WHERE agentcode = '300001' "
+            "AND (slot IS NULL OR JSON_LENGTH(slot) = 0)"
+        ), {"slot": json.dumps(SALES_AGENT_SLOTS, ensure_ascii=False)})
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
 def ensure_history_longtext():
     session = None
     try:
@@ -107,6 +143,8 @@ def init_default_agents():
             existing = session.query(AgentList).filter_by(agentcode=agent_data['agentcode']).first()
             if not existing:
                 agent = AgentList(**agent_data)
+                if agent_data['agentcode'] == '300001':
+                    agent.slot = SALES_AGENT_SLOTS
                 session.add(agent)
             elif agent_data['agentcode'] == '300001':
                 for key, value in agent_data.items():

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ChatNode } from "@view/interfaces/agent-interface";
 import {
   formatThoughtDuration,
+  getNodeDisplayDetails,
   getGeneratedFiles,
   getSkillDisplayName,
   getThoughtChainLabel,
@@ -122,5 +123,37 @@ describe("文件节点", () => {
     expect(state.files).toEqual([]);
     expect(state.tool).toBe(false);
     expect(state.preview).toBe(true);
+  });
+});
+
+describe("工作流节点输出兼容", () => {
+  it("解包搜索结果并保留结构化输出和执行信息", () => {
+    const output = {
+      context: "实时资料",
+      items: [{ title: "来源", url: "https://example.com" }],
+    };
+    const node = fileNode({
+      kind: "skill",
+      details: { output, elapsedMs: 25 },
+    });
+    expect(getNodeDisplayDetails(node)).toEqual({
+      ...output,
+      output,
+      elapsedMs: 25,
+    });
+  });
+  it("兼容历史直接字段、跳过原因和原始类型输出", () => {
+    const legacy = fileNode({ details: { context: "历史资料" } });
+    expect(getNodeDisplayDetails(legacy)).toEqual(legacy.details);
+    expect(
+      getNodeDisplayDetails(
+        fileNode({
+          details: { output: { status: "skipped", reason: "未开启联网" } },
+        }),
+      ).reason,
+    ).toBe("未开启联网");
+    expect(
+      getNodeDisplayDetails(fileNode({ details: { output: false } })).output,
+    ).toBe(false);
   });
 });

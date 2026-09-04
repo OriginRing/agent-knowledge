@@ -22,8 +22,7 @@ const router = createRouter({
     },
     {
       path: "/knowledge",
-      name: "Knowledge",
-      component: () => import("@view/views/knowledge/index.vue"),
+      redirect: "/chat",
     },
     {
       path: "/memory",

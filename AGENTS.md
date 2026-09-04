@@ -16,6 +16,8 @@
 | --- | --- |
 | 安装、配置与功能说明 | `README.md` |
 | 前端依赖与命令 | `web/package.json` |
+| 独立管理端及使用说明 | `admin/`、`docs/admin-console.md` |
+| 管理接口、版本与工作流执行 | `python/routers/admin.py`、`python/services/admin_service.py`、`python/services/workflow_runtime.py` |
 | 前端入口、页面路由 | `web/src/main.ts`、`web/src/router/index.ts` |
 | 对话页面、输入框 | `web/src/views/agent-chat/index.vue`、`web/src/components/chat-input/` |
 | 历史、知识库、记忆页面 | `web/src/views/agent-history/`、`web/src/views/knowledge/`、`web/src/views/memory/` |

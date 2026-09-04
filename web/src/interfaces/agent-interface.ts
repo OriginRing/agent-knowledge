@@ -6,6 +6,10 @@ export interface AgentSlot {
 }
 
 export interface AgentDetail {
+  defaultThink?: boolean;
+  defaultKnowledge?: boolean;
+  defaultConnect?: boolean;
+  configVersion?: number;
   slot?: AgentSlot[];
   agentCode: string;
   agentName: string;

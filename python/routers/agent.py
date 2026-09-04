@@ -13,9 +13,9 @@ class ChatRequest(BaseModel):
     agentCode: str = Field(..., description="智能体标识")
     text: str = Field(..., description="对话文本")
     files: str = Field(default="", description="文件URL列表")
-    thinking: bool = Field(default=False, description="是否启用思考模式")
-    knowledge: bool = Field(default=False, description="是否启用知识库检索")
-    connect: bool = Field(default=False, description="是否启用联网搜索")
+    thinking: Optional[bool] = Field(default=None, description="是否启用思考模式")
+    knowledge: Optional[bool] = Field(default=None, description="是否启用知识库检索")
+    connect: Optional[bool] = Field(default=None, description="是否启用联网搜索")
     sessionId: Optional[str] = Field(None, description="会话ID")
     memory: Optional[bool] = Field(
         None,
@@ -34,6 +34,16 @@ class ApiResponse(BaseModel):
     data: Optional[Any] = Field(None, description="响应数据")
 
 async def chat_generator(request: ChatRequest, username: str):
+    config = AgentService.get_agent_config(request.agentCode)
+    if not config:
+        yield f'data: {json.dumps({"event": "error", "done": True, "error": "智能体不存在或已下线"}, ensure_ascii=False)}\n\n'
+        return
+    request = request.model_copy(deep=True)
+    for field, capability in (("thinking", "think"), ("knowledge", "knowledge"), ("connect", "connect")):
+        value = getattr(request, field)
+        setattr(request, field, bool(config.get("support_" + capability) and
+            (config.get("default_" + capability, False) if value is None else value)))
+    versions = {"agentVersion": config.get("config_version"), "workflowVersion": config.get("workflowVersion")}
     full_content = ""
     full_think_message = ""
     knowledge_data = []
@@ -65,6 +75,7 @@ async def chat_generator(request: ChatRequest, username: str):
             skill=request.skill,
             skills=request.skills,
             output_format=request.outputFormat,
+            config=config,
         ):
             chunk_data = json.loads(chunk)
             full_content += chunk_data.get('content', '')
@@ -94,6 +105,7 @@ async def chat_generator(request: ChatRequest, username: str):
 
             if chunk_data.get("done") or chunk_data.get("event") == "error":
                 snapshot = {
+                    **versions,
                     "key": history_context["assistant_id"]
                     if history_context
                     else f"assistant-{uuid.uuid4().hex}",
@@ -133,6 +145,7 @@ async def chat_generator(request: ChatRequest, username: str):
                 username,
                 history_context["assistant_id"],
                 {
+                    **versions,
                     "content": full_content,
                     "thinkMessage": full_think_message,
                     "nodes": list(nodes.values()),
@@ -188,24 +201,4 @@ async def get_skill_list():
             }
             for item in skills.values()
         ],
-    }
-
-@router.get("/clear-knowledge", summary="清空知识库")
-async def clear_knowledge():
-    from services.knowledge_service import KnowledgeService
-    return KnowledgeService.clear_knowledge()
-
-class KnowledgeSearchRequest(BaseModel):
-    search: str = Field(..., description="检索关键词")
-
-@router.post("/knowledge", summary="知识库检索")
-async def search_knowledge(request: KnowledgeSearchRequest):
-    from services.knowledge_service import KnowledgeService
-    
-    result = KnowledgeService.search_knowledge(request.search, format="json")
-    
-    return {
-        'code': 0,
-        'message': 'success',
-        'data': result['results']
     }

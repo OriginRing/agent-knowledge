@@ -32,3 +32,9 @@ artifact: docx
 - `agent_codes`：允许执行该技能的智能体标识，多个值使用逗号分隔；留空表示不限制。
 - `file_extensions` 和 `intent_keywords`：用于自动匹配，可留空。
 - `artifact`：支持以逗号声明 `docx,xlsx,pptx,pdf` 等产物格式；模型回答后生成文件、上传 OSS，并由 Chat 的 `file` 节点返回一个或多个地址。
+
+## 管理端与最新配置
+
+新增的管理端可展示内置 Skill，并上传完整 Skill ZIP 包。内置 Skill 只读，同名上传替换当前 Skill，相关智能体需重新发布后使用最新配置；删除前检查工作流、智能体及运行中的引用。
+
+管理端存储使用独立的 `ADMIN_SKILLS_DIR`（默认 `python/data/admin-skills/`），不改写本目录。包限制、变量传递和执行权限见 [管理端文档](../../docs/admin-console.md)。

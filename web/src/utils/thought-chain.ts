@@ -134,3 +134,12 @@ export const openGeneratedFilePreview = async (
   store.setAgentPreview(true);
   return preview;
 };
+
+/** Workflow nodes wrap their result in output; legacy history stores it directly. */
+export const getNodeDisplayDetails = (node: ChatNode): ChatNode["details"] => {
+  const details = node.details ?? {};
+  const output: unknown = details.output;
+  return output !== null && typeof output === "object" && !Array.isArray(output)
+    ? { ...output, ...details }
+    : details;
+};

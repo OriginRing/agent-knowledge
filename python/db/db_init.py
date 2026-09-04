@@ -1,6 +1,7 @@
 from sqlalchemy import text
 from db.sqlalchemy_connection import create_tables, get_session
 from models.db_models import AgentList
+from models import admin_models  # register control-plane tables
 
 def init_tables():
     create_tables('agent-user')
@@ -10,6 +11,8 @@ def init_tables():
     ensure_agent_slot()
     ensure_history_longtext()
     init_default_agents()
+    from services.admin_service import bootstrap
+    bootstrap()
 
 
 def ensure_user_role():
@@ -146,9 +149,6 @@ def init_default_agents():
                 if agent_data['agentcode'] == '300001':
                     agent.slot = SALES_AGENT_SLOTS
                 session.add(agent)
-            elif agent_data['agentcode'] == '300001':
-                for key, value in agent_data.items():
-                    setattr(existing, key, value)
         
         session.commit()
         session.close()

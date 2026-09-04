@@ -238,7 +238,7 @@ const senderComponents = {
 const chatInput = ref<string>("");
 const quoteContent = ref("");
 const chatService = useChatStore();
-const thinking = ref(true);
+const thinking = ref(false);
 const internet = ref(false);
 const knowledge = ref(false);
 const uploadFiles = ref<
@@ -333,11 +333,30 @@ const applySlot = (content: string) => {
   mentionOpen.value = false;
 };
 
+watch(
+  () => [selectedAgent.value?.agentCode, selectedAgent.value?.configVersion],
+  () => {
+    const agent = selectedAgent.value;
+    thinking.value = Boolean(agent?.supportThink && agent.defaultThink);
+    internet.value = Boolean(agent?.supportConnect && agent.defaultConnect);
+    knowledge.value = Boolean(
+      agent?.supportKnowledge && agent.defaultKnowledge,
+    );
+  },
+  { immediate: true },
+);
+
 const clearAgent = () => {
   chatService.setAgentDetail(defaultAgent.value || ({} as AgentDetail));
-  thinking.value = true;
-  internet.value = false;
-  knowledge.value = false;
+  thinking.value = Boolean(
+    defaultAgent.value?.supportThink && defaultAgent.value.defaultThink,
+  );
+  internet.value = Boolean(
+    defaultAgent.value?.supportConnect && defaultAgent.value.defaultConnect,
+  );
+  knowledge.value = Boolean(
+    defaultAgent.value?.supportKnowledge && defaultAgent.value.defaultKnowledge,
+  );
 };
 
 provide(agentMentionKey, {

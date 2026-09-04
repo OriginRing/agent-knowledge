@@ -16,3 +16,6 @@ python/chroma_db
 /vscode
 web/.vscode
 web/dist
+/admin/node_modules/
+/admin/dist/
+/python/data/admin-skills/

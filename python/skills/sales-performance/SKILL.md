@@ -4,7 +4,6 @@ description: 按登录用户角色安全查询销售业绩，并返回授权范�
 entrypoint: handler.py:execute
 kind: executor
 order: 10
-agent_codes: 300001
 ---
 
 你正在使用经过权限校验的销售业绩数据。

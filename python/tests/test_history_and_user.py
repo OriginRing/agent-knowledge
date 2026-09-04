@@ -140,7 +140,7 @@ class ChatSnapshotTest(unittest.IsolatedAsyncioTestCase):
         with patch(
             "routers.agent.AgentService.chat_stream",
             side_effect=fake_chat_stream,
-        ):
+        ), patch("routers.agent.AgentService.get_agent_config", return_value={"agent_code": "test"}):
             chunks = [
                 item
                 async for item in chat_generator(request, username="")

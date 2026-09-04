@@ -214,6 +214,8 @@ def finalize_history_record(
             return {"code": 1, "message": "历史消息不存在"}
         target.update(
             {
+                "agentVersion": response_data.get("agentVersion"),
+                "workflowVersion": response_data.get("workflowVersion"),
                 "content": response_data.get("content", ""),
                 "thinkMessage": response_data.get("thinkMessage", ""),
                 "agentName": response_data.get("agentName", ""),

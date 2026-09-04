@@ -1,15 +1,9 @@
 from fastapi import APIRouter, UploadFile, File
-from pydantic import BaseModel, Field
 from typing import List, Optional
 from services.file_service import FileService
 from services.file_process_service import FileProcessService
-from services.knowledge_service import KnowledgeService
 
 router = APIRouter(prefix="/file", tags=["file"])
-
-class KnowledgeUploadRequest(BaseModel):
-    url: str = Field(..., description="文件URL地址（OSS地址）")
-    fileName: str = Field(..., description="文件名")
 
 def _validate_upload(filename: str, size: int) -> Optional[str]:
     import os
@@ -41,11 +35,3 @@ async def upload_files(files: List[UploadFile] = File(...)):
         file_list.append({'content': content, 'filename': file.filename})
     
     return FileService.upload_files(file_list)
-
-@router.post("/knowledge/upload", summary="上传知识库文件")
-async def upload_knowledge(request: KnowledgeUploadRequest):
-    return KnowledgeService.upload_knowledge(request.url, request.fileName)
-
-@router.post("/knowledge/clear", summary="清空知识库")
-async def clear_knowledge():
-    return KnowledgeService.clear_knowledge()

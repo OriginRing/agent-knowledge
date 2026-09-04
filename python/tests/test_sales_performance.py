@@ -40,14 +40,13 @@ class SalesPerformanceSkillTest(unittest.TestCase):
     def tearDown(self):
         SkillService._cache = None
 
-    def test_sales_skill_is_limited_to_sales_agent(self):
-        with self.assertRaisesRegex(PermissionError, "无权执行技能"):
-            SkillService.execute(
-                "sales-performance",
-                agent_code="00002",
-                query="查我上半年营业额",
-                requester_username="100001",
-            )
+    def test_sales_skill_allows_other_agents(self):
+        skill = SkillService.get_skill('sales-performance')
+        self.assertEqual(skill.agent_codes, [])
+        SkillService.ensure_agent_allowed(skill, '400001')
+        with patch.object(SkillService, 'get_handler', return_value=lambda **kwargs: {'user': kwargs['requester_username']}):
+            result = SkillService.execute('sales-performance', agent_code='400001', query='查询', requester_username='100001')
+            self.assertEqual(result['user'], '100001')
 
     def test_aggregate_supports_month_and_day_keys(self):
         aggregate = self.module_globals["_aggregate_sales"]

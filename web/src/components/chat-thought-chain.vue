@@ -61,6 +61,7 @@ import { formatFileSize } from "@view/utils/file";
 import { renderMarkdown } from "@view/utils/typewriter";
 import {
   formatThoughtDuration,
+  getNodeDisplayDetails,
   getGeneratedFiles,
   getSkillDisplayName,
   getThoughtChainLabel,
@@ -292,7 +293,11 @@ const renderParsedFiles = (files: ParsedFileDetail[]) =>
     ),
   );
 
-const renderNodeContent = (node: ChatNode) => {
+const renderNodeContent = (sourceNode: ChatNode) => {
+  const node = { ...sourceNode, details: getNodeDisplayDetails(sourceNode) };
+  if (node.details.status === "skipped") {
+    return h("p", node.details.reason || "本轮未开启该能力，已跳过执行");
+  }
   if (node.name === "skill" && node.details?.skills?.length) {
     return h(
       Flex,
@@ -370,6 +375,14 @@ const renderNodeContent = (node: ChatNode) => {
   }
   if (node.details?.error) {
     return h("p", { class: "node-error", role: "alert" }, node.details.error);
+  }
+  if (node.details.output !== undefined) {
+    const output = node.details.output;
+    return h(
+      "pre",
+      { class: "node-output" },
+      typeof output === "string" ? output : JSON.stringify(output, null, 2),
+    );
   }
   return undefined;
 };

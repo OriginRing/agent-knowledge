@@ -186,6 +186,39 @@ describe("chat input agent mention", () => {
     );
   });
 
+  it("uses published capability defaults and resets them when the agent changes", async () => {
+    const store = useChatStore(pinia);
+    store.setAgentDetail({
+      ...agents[0]!,
+      supportThink: true,
+      defaultThink: true,
+      supportKnowledge: true,
+      defaultKnowledge: true,
+      defaultConnect: true,
+      supportConnect: false,
+    });
+    const wrapper = mount(ChatInput, { global: { plugins: [pinia] } });
+    const editor = wrapper.get(".agent-mention-editor");
+    editor.element.textContent = "第一条";
+    await editor.trigger("input");
+    await editor.trigger("keydown", { key: "Enter" });
+    expect(wrapper.emitted("sendMessage")?.[0]?.slice(2)).toEqual([
+      true,
+      true,
+      false,
+    ]);
+    store.setAgentDetail(agents[1]!);
+    await wrapper.vm.$nextTick();
+    editor.element.textContent = "第二条";
+    await editor.trigger("input");
+    await editor.trigger("keydown", { key: "Enter" });
+    expect(wrapper.emitted("sendMessage")?.[1]?.slice(2)).toEqual([
+      false,
+      false,
+      false,
+    ]);
+  });
+
   it("uses the default agent without a mention on initialization", () => {
     const wrapper = mount(ChatInput, { global: { plugins: [pinia] } });
     const editor = wrapper.get(".agent-mention-editor");

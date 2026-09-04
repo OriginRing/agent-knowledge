@@ -38,6 +38,10 @@ class AgentService:
 
     @classmethod
     def get_agent_config(cls, agent_code):
+        from services.admin_service import published_config
+        published = published_config(agent_code)
+        if published:
+            return None if published.get("disabled") else published
         session = None
         try:
             session = get_session("agent-knowledge")
@@ -74,12 +78,12 @@ class AgentService:
                 session.close()
 
     @classmethod
-    def get_model(cls, agent_code, reasoning=False):
-        cache_key = f"{agent_code}_{reasoning}"
+    def get_model(cls, agent_code, reasoning=False, config=None):
+        config = config or cls.get_agent_config(agent_code)
+        cache_key = f"{agent_code}_{reasoning}_{(config or {}).get('config_version', 0)}"
         if cache_key in cls._models:
             return cls._models[cache_key]
 
-        config = cls.get_agent_config(agent_code)
         if not config:
             raise ValueError(f"agent_code 不存在或已禁用: {agent_code}")
 
@@ -93,11 +97,13 @@ class AgentService:
                 model=config["model_name"],
                 streaming=True,
                 reasoning=reasoning,
+                base_url=config.get("base_url") or "http://127.0.0.1:11434",
             )
         else:
             raise ValueError(f"不支持的模型类型: {config['model_type']}")
 
-        cls._models[cache_key] = model
+        if not str(config.get("config_version", "")).startswith("draft-"):
+            cls._models[cache_key] = model
         return model
 
     @classmethod
@@ -218,22 +224,23 @@ class AgentService:
         agent_code,
         text,
         files=None,
-        thinking=False,
-        knowledge=False,
-        connect=False,
+        thinking=None,
+        knowledge=None,
+        connect=None,
         session_id=None,
         username=None,
         memory: Optional[bool] = None,
         skill: Optional[str] = None,
         skills: Optional[List[str]] = None,
         output_format: Optional[str] = None,
+        config=None,
     ):
         if isinstance(files, str):
             files = [item.strip() for item in files.split(",") if item.strip()]
         else:
             files = files or []
 
-        config = cls.get_agent_config(agent_code)
+        config = config or cls.get_agent_config(agent_code)
         if not config:
             yield cls._dump(
                 cls._event(
@@ -245,6 +252,15 @@ class AgentService:
             )
             return
 
+        if config.get("workflow"):
+            from services.workflow_runtime import stream_workflow
+            async for event in stream_workflow(config, text=text, files=files, username=username,
+                    session_id=session_id, thinking=thinking, knowledge=knowledge, connect=connect, memory=memory):
+                yield cls._dump(event)
+            return
+        thinking = config.get("default_think", False) if thinking is None else thinking
+        knowledge = config.get("default_knowledge", False) if knowledge is None else knowledge
+        connect = config.get("default_connect", False) if connect is None else connect
         actual_thinking = bool(thinking and config.get("support_think"))
         requested_skills = set(skills or [])
         if knowledge:
@@ -344,7 +360,7 @@ class AgentService:
                 )
             )
 
-            system_messages: List[Dict[str, str]] = []
+            system_messages: List[Dict[str, str]] = ([{"role": "system", "content": config["system_prompt"]}] if config.get("system_prompt") else [])
             for selected in ordered_skills:
                 if (
                     selected.kind == "hybrid"
@@ -978,7 +994,7 @@ class AgentService:
             )
 
         messages.append({"role": "user", "content": text})
-        model = cls.get_model(config["agent_code"], reasoning=thinking)
+        model = cls.get_model(config["agent_code"], reasoning=thinking, config=config)
         async for chunk in model.astream(messages):
             yield cls._event(
                 config,
@@ -1008,7 +1024,7 @@ class AgentService:
         base_messages,
         context,
     ) -> AsyncIterator[Dict[str, Any]]:
-        client = cls.get_model(config["agent_code"])
+        client = cls.get_model(config["agent_code"], config=config)
         messages: List[Dict[str, Any]] = list(base_messages)
         if connect:
             messages.append(
@@ -1189,7 +1205,15 @@ class AgentService:
         session = None
         try:
             session = get_session("agent-knowledge")
-            agents = session.query(AgentList).order_by(AgentList.id).all()
+            agents = session.query(AgentList).filter_by(status=1).order_by(AgentList.id).all()
+            from models.admin_models import AdminResource, AdminVersion
+            defaults = {}
+            for resource in session.query(AdminResource).filter_by(kind="agents", online=1):
+                release = session.query(AdminVersion).filter_by(resource_id=resource.id, version=resource.published_version).first()
+                if release:
+                    defaults[release.payload["agentCode"]] = {"defaultThink": release.payload.get("default_think", False),
+                        "defaultKnowledge": release.payload.get("default_knowledge", False),
+                        "defaultConnect": release.payload.get("default_connect", False), "configVersion": release.version}
             result = [
                 {
                     "id": agent.id,
@@ -1206,6 +1230,7 @@ class AgentService:
                     "supportConnect": agent.support_connect,
                     "supportKnowledge": agent.support_knowledge,
                     "supportDownload": agent.support_download,
+                    **defaults.get(agent.agentcode, {}),
                 }
                 for agent in agents
             ]

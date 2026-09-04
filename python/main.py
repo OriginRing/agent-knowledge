@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from routers.auth import router as auth_router
 from routers.agent import router as agent_router
 from routers.file import router as file_router
+from routers.admin import router as admin_router
 from db.db_init import init_tables
 
 @asynccontextmanager
@@ -26,6 +27,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(agent_router)
 app.include_router(file_router)
+app.include_router(admin_router)
 
 @app.get("/", summary="健康检查")
 async def health_check():

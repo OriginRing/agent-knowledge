@@ -5,6 +5,8 @@
 ## 界面预览
 
 ![Agent Knowledge 登录界面](docs/images/login.jpg)
+![Agent Knowledge 对话界面](docs/images/chat.png)
+![Agent Knowledge 知识库界面](docs/images/knowledge.png)
 
 ## 功能特性
 
@@ -19,6 +21,9 @@
 - **销售业绩助手**：按登录用户角色查询模拟销售数据，支持单月、季度、半年及全年汇总，以及图表展示和文件导出。
 - **文件与知识库管理**：文件上传至阿里云 OSS 后，可用于对话附件或写入知识库。
 - **用户与会话管理**：支持注册登录、个人资料、历史会话和密码修改。
+- **对话输入与模板**：支持多行输入、通过 `@` 选择智能体，以及智能体词槽模板。
+- **工作面板**：支持参考资料展示、文件预览和 Monaco 代码编辑。
+- **图表与外观**：支持 GPT-Vis 图表展示、自定义背景与主题，以及手动检查前端版本更新。
 
 ## 技术栈
 
@@ -78,7 +83,7 @@ ollama pull qwen3.5:9b
 
 ### 1. 创建数据库
 
-在 MySQL 中创建两个数据库：
+在 MySQL 中创建两个业务数据库；使用销售业绩助手时，另需准备 `simulated-data` 数据库及销售数据：
 
 ```sql
 CREATE DATABASE `agent-knowledge`
@@ -89,6 +94,7 @@ CREATE DATABASE `agent-user`
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
+-- 使用销售业绩助手时需要
 CREATE DATABASE `simulated-data`
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
@@ -180,12 +186,12 @@ VITE_API_BASE_URL=https://your-api.example.com
 
 ## 配置项
 
-OCR 与知识库相关变量为必填配置；其他变量可按实际启用的功能调整。
+启用 OCR 或知识库功能时，需要填写对应配置；这些配置由代码读取时校验，不会自动使用下表中的示例值。其他变量可按实际启用的功能调整。
 
 | 变量 | 示例值 | 用途 |
 | --- | --- | --- |
 | `MAX_TOKENS` | `8192` | 模型最大输出 token 数 |
-| `AGENT_SKILLS_DIR` | `python/skills` | 自定义技能目录 |
+| `AGENT_SKILLS_DIR` | `/absolute/path/to/skills` | 自定义技能目录；不设置时使用仓库内的 `python/skills`，相对路径基于后端工作目录 |
 | `MEMOS_TIMEOUT` | `15` | Memos 请求超时，单位为秒 |
 | `MAX_PARSE_FILE_BYTES` | `20971520` | 远程文件最大解析字节数 |
 | `FILE_DOWNLOAD_TIMEOUT_SECONDS` | `30` | 文件下载超时，单位为秒 |
@@ -202,6 +208,19 @@ OCR 与知识库相关变量为必填配置；其他变量可按实际启用的�
 | `KNOWLEDGE_EMBEDDING_MODEL` | `qwen3-embedding:4b` | 知识库使用的 Ollama Embedding 模型 |
 
 更完整的文档处理说明见 [`python/DOCUMENT_PARSING.md`](python/DOCUMENT_PARSING.md)。
+
+## 页面与对话操作
+
+| 路径 | 说明 |
+| --- | --- |
+| `/chat` | 智能体对话，根路径 `/` 自动跳转至此 |
+| `/history` | 历史会话 |
+| `/knowledge` | 知识库 |
+| `/memory` | 长期记忆 |
+
+未登录时先完成登录。对话链接使用 `/chat?agendCode=xx&session=xx`，其中 `agendCode` 是现有 URL 参数名；后端接口对应字段为 `agentCode` 和 `sessionId`。
+
+输入框使用 `Enter` 发送、`Shift+Enter` 换行，输入 `@` 可选择智能体。带词槽模板的智能体可插入模板并填写内容。对话中的参考资料、文件与代码可通过右侧工作面板查看或编辑。
 
 ## 支持的文件格式
 
@@ -243,6 +262,7 @@ npm run dev
 npm run build
 npm run test
 npm run lint
+npm run format:check
 npm run format
 ```
 
@@ -275,8 +295,12 @@ python main.py
 
 - Chroma 数据默认写入后端运行目录下的 `chroma_db/knowledge`。
 - 数据库表在 FastAPI 生命周期启动阶段自动初始化。
-- 登录状态通过 HttpOnly Cookie 维护，默认有效期为 30 分钟。
+- 登录状态通过 HttpOnly Cookie 维护，登录签发的 JWT 与 Cookie 有效期均为 24 小时，由 `python/services/user_service.py` 中的 `ACCESS_TOKEN_EXPIRE_SECONDS` 定义。
+- 前端使用 History 路由，生产静态服务器需将页面路由回退到 `index.html`，并为 `/auth`、`/agent`、`/file` 配置后端转发；Vite 开发代理不会随 `dist` 一起部署。
+- 构建会生成 `version.json` 供界面手动检查更新，可通过 `APP_VERSION` 指定构建版本。发布时应部署完整的 `web/dist/`，并确保版本文件不会长期命中旧缓存。
 - 当前 CORS、Cookie 安全属性、JWT 密钥和数据库凭据均采用开发配置；生产部署前必须收紧跨域来源、启用 HTTPS，并将敏感配置迁移到环境变量或密钥管理服务。
 - OSS、Memos、Tavily 和云端模型均为可选集成，但依赖它们的界面功能需要配置对应服务。
 
-## License
+## 开发协作
+
+面向代码助手的项目入口、启动命令、测试流程与关键实现约定见 [`AGENTS.md`](AGENTS.md)。

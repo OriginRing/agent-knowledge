@@ -1,6 +1,7 @@
 /.DS_Store
 web/.DS_Store
 python/.DS_Store
+*/**/.DS_Store
 /web/node_modules
 /.idea
 web/.idea

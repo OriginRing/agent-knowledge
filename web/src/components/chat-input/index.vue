@@ -628,11 +628,11 @@ const handleFileBeforeUpload = async (
   }
 
   .agent-input-tip {
-    position: absolute;
-    bottom: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 12px;
-    left: 50%;
-    transform: translateX(-50%);
     color: var(--app-text-tertiary);
     white-space: nowrap;
   }

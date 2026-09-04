@@ -646,6 +646,7 @@ onMounted(() => {
 
     :deep(.ant-bubble-start .ant-bubble-content-filled) {
       border: 1px solid var(--app-border-subtle);
+      overflow: hidden;
       border-radius: 20px 20px 20px 7px;
       color: var(--app-text);
       background: var(--app-surface-solid);
@@ -719,7 +720,7 @@ onMounted(() => {
   }
 
   .agent-input {
-    flex: 0 0 200px;
+    min-height: 200px;
     position: relative;
 
     .send {

@@ -9,7 +9,6 @@
     <p class="background-picker-help">
       选择后立即应用。页面面板会呈半透明效果，文字仍保持清晰不透明。
     </p>
-    Ï
     <div class="background-grid" aria-label="可用背景图片">
       <button
         v-for="image in backgroundImages"

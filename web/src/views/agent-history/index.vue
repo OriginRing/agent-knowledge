@@ -1,12 +1,5 @@
 <template>
   <div class="agent-history">
-    <header class="page-header">
-      <div>
-        <span class="page-eyebrow">CONVERSATION ARCHIVE</span>
-        <h2>管理对话</h2>
-        <p>回到过去的灵感片段，或整理不再需要的会话。</p>
-      </div>
-    </header>
     <div class="agent-history-list">
       <a-list :locale="{ emptyText: '暂无数据' }">
         <a-list-item

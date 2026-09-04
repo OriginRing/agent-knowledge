@@ -78,7 +78,7 @@ const anchors = computed(() =>
   position: absolute;
   z-index: 12;
   top: 50%;
-  left: 0;
+  left: 2px;
   transform: translateY(-50%);
 }
 
@@ -94,8 +94,8 @@ const anchors = computed(() =>
 .message-anchor {
   position: relative;
   display: flex;
-  width: 44px;
-  height: 24px;
+  width: 28px;
+  height: 12px;
   padding: 0;
   align-items: center;
   border: 0;
@@ -109,13 +109,20 @@ const anchors = computed(() =>
     border-radius: 8px;
   }
 
-  &:hover,
   &:focus-visible,
   &.is-active {
     color: var(--app-text);
 
     .message-anchor-line {
-      width: 28px;
+      background: currentcolor;
+    }
+  }
+
+  &:hover {
+    color: var(--app-text);
+
+    .message-anchor-line {
+      width: 24px;
       background: currentcolor;
     }
   }
@@ -132,7 +139,7 @@ const anchors = computed(() =>
 
 .message-anchor-line {
   display: block;
-  width: 14px;
+  width: 8px;
   height: 2px;
   border-radius: 999px;
   background: currentcolor;

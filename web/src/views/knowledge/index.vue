@@ -83,12 +83,14 @@ const onSearch = async (searchValue: string) => {
 };
 
 const previewFile = async (name: string, url: string) => {
+  const panelVersion = chatService.panelResetVersion;
   try {
     const response = await fetch(url);
     if (!response.ok) {
       message.error(`文件资源获取失败`);
     }
     const blob = await response.blob();
+    if (chatService.panelResetVersion !== panelVersion) return;
     file.value = new File([blob], name, { type: blob.type });
 
     chatService.setAgentPreview(true);

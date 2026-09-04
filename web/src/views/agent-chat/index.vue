@@ -801,7 +801,6 @@ onMounted(() => {
 }
 
 .assistant-message {
-  min-width: min(560px, 62vw);
   color: var(--app-text);
   background: var(--app-surface-solid);
 

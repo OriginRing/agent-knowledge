@@ -145,6 +145,7 @@ const syncChatRoute = async () => {
     return;
   }
 
+  chatService.resetWorkspacePanel();
   const res = await httpClient.post("/auth/history/detail", {
     sessionId: requestedSessionId,
   });

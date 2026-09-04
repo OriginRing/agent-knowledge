@@ -89,6 +89,7 @@ const getAgentHistoryList = async () => {
 };
 
 const selectHistory = async (key: string) => {
+  chatService.resetWorkspacePanel();
   const res = await httpClient.post("/auth/history/detail", {
     id: key,
   });

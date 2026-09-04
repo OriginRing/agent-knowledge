@@ -19,7 +19,6 @@ import {
 import "@open-file-viewer/core/style.css";
 import { ref, watchEffect } from "vue";
 import { useThemeStore } from "@view/stores/theme";
-import { CloseOutlined } from "@ant-design/icons-vue";
 
 const pdfWorkerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -27,7 +26,6 @@ const pdfWorkerSrc = new URL(
 ).href;
 
 const props = defineProps<{ file: File }>();
-const emit = defineEmits(["close"]);
 const themeService = useThemeStore();
 const theme = ref(true);
 const viewerRef = ref<{ reload: (target: File) => void } | null>(null);
@@ -53,8 +51,6 @@ const plugins = [
   ofdPlugin(),
   fallbackPlugin(),
 ];
-
-const close = () => emit("close");
 
 const preventDownload = (event: MouseEvent) => {
   if (!(event.target instanceof Element)) return;
@@ -101,18 +97,6 @@ watchEffect(() => {
       :plugins="plugins"
     >
     </OpenFileViewer>
-    <a-button
-      class="close"
-      type="text"
-      shape="circle"
-      size="small"
-      aria-label="关闭文件预览"
-      @click="close"
-    >
-      <template #icon>
-        <CloseOutlined />
-      </template>
-    </a-button>
   </div>
 </template>
 <style scoped lang="less">
@@ -126,15 +110,6 @@ watchEffect(() => {
   border-radius: var(--app-radius-shell);
   background: var(--app-surface-solid);
   box-shadow: var(--app-shadow-soft);
-
-  .close {
-    position: absolute;
-    top: 4px;
-    right: 8px;
-    z-index: 10;
-    border: 1px solid var(--app-border-subtle);
-    background: var(--app-surface);
-  }
 
   :deep(a[download]),
   :deep([data-action="download"]),

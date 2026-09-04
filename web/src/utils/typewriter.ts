@@ -124,6 +124,7 @@ if (!customElements.get("gpt-vis")) {
 
 export class MarkdownCodeBlockElement extends HTMLElement {
   private _feedbackTimer?: number;
+  private readonly _editId = `code-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
   private readonly handleClick = async (event: Event) => {
     const target = event.target as Element | null;
@@ -157,8 +158,22 @@ export class MarkdownCodeBlockElement extends HTMLElement {
   };
 
   private readonly handleEdit = () => {
-    // 编辑逻辑后续补充。
-    console.log(111);
+    const code = this.querySelector("code");
+    if (!code) return;
+    this.dispatchEvent(
+      new CustomEvent("markdown-code-edit", {
+        bubbles: true,
+        composed: true,
+        detail: {
+          id: this._editId,
+          code: code.textContent ?? "",
+          language:
+            this.querySelector(
+              ".markdown-code-language",
+            )?.textContent?.trim() || "text",
+        },
+      }),
+    );
   };
 
   connectedCallback() {

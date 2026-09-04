@@ -7,7 +7,8 @@ import { theme } from "ant-design-vue";
 import { useThemeStore } from "@view/stores/theme";
 import { useChatStore } from "@view/stores/chat";
 import Split from "@view/components/split.vue";
-import KnowledgeFile from "@view/views/knowledge-file/index.vue";
+import WorkspacePanel from "@view/views/workspace-panel/index.vue";
+import type { CodeDraft } from "@view/stores/chat";
 import { createChatSession } from "@view/utils/random";
 import { useRoute, useRouter } from "vue-router";
 import {
@@ -64,6 +65,10 @@ const applyTheme = (dark: boolean) => {
   document.documentElement.classList.toggle("dark", dark);
 };
 
+const handleCodeEdit = (event: Event) => {
+  chatService.openCodeEditor((event as CustomEvent<CodeDraft>).detail);
+};
+
 const handleShortcut = (event: KeyboardEvent) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
@@ -106,6 +111,7 @@ watch(
 
 onMounted(() => {
   applyTheme(themeStore.isDark);
+  document.addEventListener("markdown-code-edit", handleCodeEdit);
   window.addEventListener("keydown", handleShortcut);
   if (window.innerWidth <= 768) {
     chatService.setAgentTool(false);
@@ -115,6 +121,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", handleShortcut);
+  document.removeEventListener("markdown-code-edit", handleCodeEdit);
 });
 
 watch(() => themeStore.isDark, applyTheme);
@@ -158,7 +165,7 @@ watch(() => themeStore.isDark, applyTheme);
           </a-layout>
         </template>
         <template #right>
-          <KnowledgeFile />
+          <WorkspacePanel />
         </template>
       </Split>
     </a-config-provider>

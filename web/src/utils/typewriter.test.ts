@@ -82,11 +82,18 @@ describe("Markdown 代码块", () => {
     expect(message.success).toHaveBeenCalledWith("已复制");
   });
 
-  it("点击编辑按钮时暂不执行后续逻辑", () => {
+  it("点击编辑按钮时传递完整代码与语言", () => {
+    const onEdit = vi.fn();
+    document.addEventListener("markdown-code-edit", onEdit, { once: true });
     document.body.innerHTML = renderMarkdown("```js\nconst n = 1;\n```");
     document.querySelector<HTMLButtonElement>(".markdown-code-edit")?.click();
 
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(onEdit).toHaveBeenCalledOnce();
+    expect((onEdit.mock.calls[0]![0] as CustomEvent).detail).toEqual({
+      id: expect.any(String),
+      code: "const n = 1;\n",
+      language: "js",
+    });
     expect(document.querySelector("code")?.textContent).toBe("const n = 1;\n");
   });
 

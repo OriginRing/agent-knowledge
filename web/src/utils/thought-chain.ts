@@ -42,6 +42,7 @@ export const getThoughtChainLabel = (
 };
 
 interface FilePreviewStore {
+  panelResetVersion?: number;
   setAgentPreviewFiles: (files: KnowledgeDoc[]) => void;
   setAgentPreviewFile?: (file: File) => void;
   setAgentKnowledgeFile?: (file: File) => void;
@@ -111,6 +112,7 @@ export const openGeneratedFilePreview = async (
   store: FilePreviewStore,
   fetcher: typeof fetch = fetch,
 ): Promise<File> => {
+  const panelVersion = store.panelResetVersion;
   const response = await fetcher(file.fileUrl);
   if (!response.ok) {
     throw new Error(`文件资源获取失败（${response.status}）`);
@@ -119,6 +121,7 @@ export const openGeneratedFilePreview = async (
   const preview = new File([blob], file.fileName, {
     type: blob.type || file.mimeType,
   });
+  if (store.panelResetVersion !== panelVersion) return preview;
   store.setAgentPreviewFiles([]);
   if (store.setAgentPreviewFile) {
     store.setAgentPreviewFile(preview);

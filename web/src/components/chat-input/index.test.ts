@@ -254,8 +254,10 @@ describe("chat input agent mention", () => {
     const editor = wrapper.get(".agent-mention-editor");
     expect(editor.get(".selected-agent").text()).toContain("@数据分析师");
     expect(editor.attributes("contenteditable")).toBe("true");
-    expect(editor.element.firstChild?.textContent).toBe("请让 ");
-    expect(editor.element.lastChild?.textContent).toBe("\u2060");
+    expect(editor.element.firstChild?.textContent).toContain("@数据分析师");
+    expect(
+      editor.element.lastChild?.textContent?.replaceAll("\u2060", ""),
+    ).toBe("请让 ");
   });
 
   it("returns to the default agent without a mention after closing", async () => {
@@ -383,6 +385,54 @@ describe("chat input agent mention", () => {
       expect(wrapper.emitted("sendMessage")?.[0]?.[0]).toBe("重新输入");
     },
   );
+
+  it.each(["metaKey", "ctrlKey"])(
+    "selects only the content with %s+A",
+    async (modifier) => {
+      const store = useChatStore(pinia);
+      store.setAgentDetail(agents[1]!);
+      const wrapper = mount(ChatInput, { global: { plugins: [pinia] } });
+      const editor = wrapper.get(".agent-mention-editor");
+      editor.element.append(document.createTextNode("删除这段正文"));
+      await editor.trigger("input");
+      await editor.trigger("keydown", { key: "a", [modifier]: true });
+      const selection = window.getSelection()!;
+      expect(selection.toString()).not.toContain("@数据分析师");
+      expect(selection.toString()).toContain("删除这段正文");
+      selection.getRangeAt(0).deleteContents();
+      await editor.trigger("input", { inputType: "deleteContentBackward" });
+      expect(editor.get(".selected-agent").text()).toContain("@数据分析师");
+      expect(editor.classes()).toContain("empty");
+      expect(store.getAgentDetail.agentCode).toBe("analyst");
+    },
+  );
+
+  it("adds a plain space after a trailing slot and exits its styling on Space", async () => {
+    const store = useChatStore(pinia);
+    store.setAgentDetail({
+      ...agents[0]!,
+      slot: [{ title: "模板", content: "查询<<姓名>>" }],
+    });
+    const wrapper = mount(ChatInput, { global: { plugins: [pinia] } });
+    await wrapper.get(".agent-slot-button").trigger("click");
+    const editor = wrapper.get(".agent-mention-editor");
+    const slot = editor.get(".slot-placeholder").element;
+    expect(slot.nextSibling?.textContent).toBe(" ");
+    const range = document.createRange();
+    range.selectNodeContents(slot);
+    range.collapse(false);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    await editor.trigger("keydown", { key: " " });
+    const caret = selection.getRangeAt(0);
+    expect(slot.contains(caret.startContainer)).toBe(false);
+    const typed = document.createTextNode("后续文字");
+    caret.insertNode(typed);
+    await editor.trigger("input");
+    expect(editor.get(".slot-placeholder").text()).toBe("姓名");
+    expect(typed.parentElement).toBe(editor.element);
+  });
 
   it("preserves intentional empty lines when inserting a line break", async () => {
     const wrapper = mount(ChatInput, { global: { plugins: [pinia] } });

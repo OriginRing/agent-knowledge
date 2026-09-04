@@ -117,6 +117,7 @@ const setCaretToEnd = () => {
 const hasAgentIdentity = (agent?: AgentDetail): agent is AgentDetail =>
   typeof agent?.agentCode === "string" &&
   Boolean(agent.agentCode.trim()) &&
+  typeof agent.agentName === "string" &&
   Boolean(agent.agentName.trim());
 
 const createMentionNode = (agent: AgentDetail) => {
@@ -192,7 +193,7 @@ const insertMention = (agent: AgentDetail, triggerLength: number) => {
   editorRef.value.querySelector("[data-agent-mention]")?.remove();
   removeCaretAnchors();
   removeTrailingTrigger(triggerLength);
-  editorRef.value.append(
+  editorRef.value.prepend(
     createMentionNode(agent),
     document.createTextNode(CARET_ANCHOR),
   );
@@ -233,7 +234,9 @@ const insertSlot = (content: string) => {
   const parts = content.split(/(<<[^<>\n]+>>|\{\{[^{}\n]+\}\})/g);
   parts.forEach((part, index) => {
     if (index % 2 === 0) {
-      editorRef.value?.append(document.createTextNode(part));
+      const text =
+        index === parts.length - 1 && index > 0 && !part ? " " : part;
+      editorRef.value?.append(document.createTextNode(text));
     } else {
       const span = document.createElement("span");
       span.className = `slot-placeholder ${part.startsWith("<<") ? "slot-angle" : "slot-brace"}`;
@@ -319,6 +322,52 @@ const handleInput = (event?: Event) => {
 };
 
 const handleKeydown = (event: KeyboardEvent) => {
+  const editor = editorRef.value;
+  const selection = window.getSelection();
+  if (
+    editor &&
+    selection &&
+    (event.metaKey || event.ctrlKey) &&
+    event.key.toLowerCase() === "a"
+  ) {
+    event.preventDefault();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    const mention = editor.querySelector("[data-agent-mention]");
+    if (mention) range.setStartAfter(mention);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return;
+  }
+  if (
+    event.key === " " &&
+    !event.isComposing &&
+    selection?.isCollapsed &&
+    selection.rangeCount
+  ) {
+    const range = selection.getRangeAt(0);
+    const parent =
+      range.startContainer.nodeType === Node.ELEMENT_NODE
+        ? (range.startContainer as Element)
+        : range.startContainer.parentElement;
+    const slot = parent?.closest(".slot-placeholder");
+    if (slot && editor?.contains(slot)) {
+      const tail = range.cloneRange();
+      tail.selectNodeContents(slot);
+      tail.setStart(range.startContainer, range.startOffset);
+      if (!tail.toString()) {
+        event.preventDefault();
+        const space = document.createTextNode(" ");
+        slot.after(space);
+        range.setStart(space, 1);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        emitValue();
+        return;
+      }
+    }
+  }
   props.onKeydown?.(event);
   if (event.key === "Enter") props.onPressEnter?.(event);
 };

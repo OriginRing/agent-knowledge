@@ -335,11 +335,10 @@ const renderNodeContent = (sourceNode: ChatNode) => {
       innerHTML: renderMarkdown(node.details.reasoning),
     });
   }
-  console.log(node);
   const detailFiles = node.details?.files ?? [];
-  console.log(detailFiles);
   const parsedFiles = detailFiles.filter(
-    (file): file is ParsedFileDetail => "url" in file,
+    (file): file is ParsedFileDetail =>
+      typeof file === "object" && file !== null && "url" in file,
   );
   if (parsedFiles.length) return renderParsedFiles(parsedFiles);
   if (node.details?.items?.length) {

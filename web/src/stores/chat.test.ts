@@ -7,7 +7,7 @@ describe("chat store history state", () => {
     setActivePinia(createPinia());
   });
 
-  it("refreshes history and selects the completed session", () => {
+  it("仅新 session 刷新历史列表并选中已完成会话", () => {
     const chatStore = useChatStore();
 
     expect(chatStore.getHistoryRefreshVersion).toBe(0);
@@ -17,6 +17,13 @@ describe("chat store history state", () => {
 
     expect(chatStore.getHistoryRefreshVersion).toBe(1);
     expect(chatStore.getActiveHistorySessionId).toBe("session-1");
+
+    chatStore.refreshHistory("session-1");
+    expect(chatStore.getHistoryRefreshVersion).toBe(1);
+
+    chatStore.refreshHistory("session-2");
+    expect(chatStore.getHistoryRefreshVersion).toBe(2);
+    expect(chatStore.getActiveHistorySessionId).toBe("session-2");
   });
 
   it("updates and clears the active history session", () => {

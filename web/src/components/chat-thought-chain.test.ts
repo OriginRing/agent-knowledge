@@ -338,4 +338,35 @@ describe("ChatThoughtChain", () => {
     ).not.toContain("ant-collapse-item-active");
     wrapper.unmount();
   });
+
+  it("开始节点包含多个文件 URL 时不会按 OCR 结果对象读取", async () => {
+    const wrapper = mountThoughtChain({
+      nodes: [
+        {
+          id: "start",
+          kind: "pipeline",
+          name: "start",
+          title: "开始",
+          summary: "开始",
+          status: "success",
+          details: {
+            output: {
+              text: "分析上传文件",
+              files: [
+                "https://oss.example.com/uploads/图片一.png",
+                "https://oss.example.com/uploads/图片二.png",
+              ],
+            },
+          },
+        },
+      ],
+      active: true,
+      messageStatus: "running",
+    });
+    await nextTick();
+
+    expect(wrapper.text()).toContain("分析上传文件");
+    expect(wrapper.find(".parsed-file").exists()).toBe(false);
+    wrapper.unmount();
+  });
 });

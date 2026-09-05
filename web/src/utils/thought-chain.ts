@@ -89,8 +89,9 @@ export const toThoughtChainStatus = (
 };
 
 const isGeneratedFile = (
-  file: ParsedFileDetail | GeneratedFileDetail,
-): file is GeneratedFileDetail => "fileUrl" in file;
+  file: string | ParsedFileDetail | GeneratedFileDetail,
+): file is GeneratedFileDetail =>
+  typeof file === "object" && file !== null && "fileUrl" in file;
 
 export const getGeneratedFiles = (node: ChatNode): GeneratedFileDetail[] => {
   const files = (node.details?.files ?? []).filter(isGeneratedFile);

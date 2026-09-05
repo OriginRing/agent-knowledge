@@ -97,7 +97,7 @@ export interface ChatNode {
   status: ChatNodeStatus;
   fileUrl?: string;
   details: {
-    files?: Array<ParsedFileDetail | GeneratedFileDetail>;
+    files?: Array<string | ParsedFileDetail | GeneratedFileDetail>;
     items?: Array<Record<string, SafeAny>>;
     query?: string;
     context?: string;

@@ -136,8 +136,9 @@ export const useChatStore = defineStore("chatPiniaService", {
       this.activeHistorySessionId = sessionId;
     },
     refreshHistory(sessionId: string) {
+      const isNewSession = this.activeHistorySessionId !== sessionId;
       this.activeHistorySessionId = sessionId;
-      this.historyRefreshVersion += 1;
+      if (isNewSession) this.historyRefreshVersion += 1;
     },
   },
 });

@@ -20,6 +20,9 @@ from services.workflow_service import validate_graph
 
 STORAGE = Path(os.getenv('ADMIN_SKILLS_DIR', str(Path(__file__).resolve().parents[1] / 'data' / 'admin-skills')))
 KINDS = {'agents', 'workflows', 'skills'}
+REMOVED_SKILL_SWITCH_FIELDS = {
+    'support_connect', 'support_knowledge', 'default_connect', 'default_knowledge'
+}
 
 
 class AgentDraft(BaseModel):
@@ -32,20 +35,22 @@ class AgentDraft(BaseModel):
     support_file: bool = False
     support_download: bool = False
     support_think: bool = False
-    support_connect: bool = False
-    support_knowledge: bool = False
     default_think: bool = False
-    default_connect: bool = False
-    default_knowledge: bool = False
 
 
 def fail(message, status=400):
     raise HTTPException(status_code=status, detail=message)
 
 
+def without_skill_switches(payload):
+    return {key: value for key, value in payload.items()
+            if key not in REMOVED_SKILL_SWITCH_FIELDS}
+
+
 def record(row):
+    draft = without_skill_switches(row.draft) if row.kind == 'agents' else row.draft
     return {'id': row.id, 'kind': row.kind, 'name': row.name, 'revision': row.revision,
-            'draft': row.draft, 'publishedVersion': row.published_version, 'online': bool(row.online)}
+            'draft': draft, 'publishedVersion': row.published_version, 'online': bool(row.online)}
 
 
 def get_row(session, kind, key, lock=False):
@@ -244,6 +249,7 @@ def save(kind, payload, key=None, revision=None):
     payload.pop('_deleted', None)
     payload.pop('needsPublish', None)
     if kind == 'agents':
+        payload = without_skill_switches(payload)
         for field in ('model_type', 'model_name', 'base_url', 'api_key_name', 'modelRevision',
                       'workflowVersion', 'legacy'):
             payload.pop(field, None)
@@ -305,9 +311,8 @@ def resolve_agent_model(payload, session, lock=False):
 
 def validate_agent(payload, session):
     resolve_agent_model(payload, session, lock=True)
-    for capability in ('think', 'connect', 'knowledge'):
-        if payload.get(f'default_{capability}') and not payload.get(f'support_{capability}'):
-            fail('默认开启的能力必须同时启用支持开关')
+    if payload.get('default_think') and not payload.get('support_think'):
+        fail('默认开启的能力必须同时启用支持开关')
     slots = payload.get('slot', [])
     if not isinstance(slots, list) or any(not isinstance(s, dict) or not isinstance(s.get('title'), str) or not isinstance(s.get('content'), str) for s in slots):
         fail('词槽必须为包含 title、content 的数组')
@@ -331,6 +336,7 @@ def publish(kind, key, revision):
             payload = latest_graph(session, payload)
             validate_graph(payload, lambda i, v, a: skill_definition(session, i, v, a))
         elif kind == 'agents':
+            payload = without_skill_switches(payload)
             payload['workflow'] = validate_agent(payload, session)
             payload.pop('legacy', None)
         else:
@@ -365,7 +371,7 @@ def project_agent(session, payload, online):
     row.agentname = payload['name']
     row.model_id = payload['modelId']
     for field in ('description', 'slot',
-                  'support_file', 'support_think', 'support_connect', 'support_knowledge', 'support_download'):
+                  'support_file', 'support_think', 'support_download'):
         if field in payload:
             setattr(row, field, payload[field])
     row.status = int(online)
@@ -384,6 +390,7 @@ def published_config(agent_code):
         if row.draft.get('_deleted') or not row.online or not row.published_version:
             return {'disabled': True}
         payload = version_payload(session, row.id, row.published_version)
+        payload = without_skill_switches(payload)
         return {**payload, 'agent_code': agent_code, 'agent_name': payload['name'],
                 'config_version': row.published_version, 'resource_id': row.id}
 

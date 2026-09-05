@@ -97,11 +97,7 @@ function slots(value: unknown) {
           <span>能力</span><span>支持</span><span>默认开启</span>
         </div>
         <div
-          v-for="cap in [
-            { key: 'think', label: '深度思考' },
-            { key: 'connect', label: '联网搜索' },
-            { key: 'knowledge', label: '知识库' },
-          ]"
+          v-for="cap in [{ key: 'think', label: '深度思考' }]"
           :key="cap.key"
           class="capability-row"
         >
@@ -133,7 +129,7 @@ function slots(value: unknown) {
             aria-label="支持产物生成"
           />
         </div>
-        <p class="muted">用户只能在允许的能力范围内切换。</p>
+        <p class="muted">Skill 能力由工作流配置，不受这里的能力开关控制。</p>
       </section>
     </div>
   </div>

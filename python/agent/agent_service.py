@@ -13,25 +13,6 @@ from models.db_models import AgentList
 
 load_dotenv()
 
-def web_search(query: str) -> str:
-    try:
-        from services.search_service import SearchService
-
-        return SearchService.search(query).get("context", "未找到相关信息")
-    except Exception as exc:
-        return f"搜索错误: {exc}"
-
-
-def retrieve_knowledge(query: str):
-    try:
-        from services.knowledge_service import KnowledgeService
-
-        result = KnowledgeService.search_knowledge(query, k=3, format="text")
-        return result["knowledge_text"], result["knowledge_items"]
-    except Exception as exc:
-        print(f"知识库检索错误: {exc}")
-        return "", []
-
 
 class AgentService:
     _models: Dict[str, Any] = {}
@@ -110,7 +91,6 @@ class AgentService:
         file_url: Optional[str] = None,
         error: Optional[str] = None,
         thinking: bool = False,
-        connect: bool = False,
         memory: bool = False,
         skill: Optional[str] = None,
         skills: Optional[List[str]] = None,
@@ -122,7 +102,6 @@ class AgentService:
             "agentCode": config.get("agent_code", "") if config else "",
             "agentName": config.get("agent_name", "") if config else "",
             "thinking": thinking,
-            "connect": connect,
             "memory": memory,
             "skill": skill,
             "skills": skills or ([skill] if skill else []),
@@ -190,8 +169,6 @@ class AgentService:
         text,
         files=None,
         thinking=None,
-        knowledge=None,
-        connect=None,
         session_id=None,
         username=None,
         memory: Optional[bool] = None,
@@ -220,34 +197,17 @@ class AgentService:
         if config.get("workflow"):
             from services.workflow_runtime import stream_workflow
             async for event in stream_workflow(config, text=text, files=files, username=username,
-                    session_id=session_id, thinking=thinking, knowledge=knowledge, connect=connect, memory=memory):
+                    session_id=session_id, thinking=thinking, memory=memory):
                 yield cls._dump(event)
             return
         thinking = config.get("default_think", False) if thinking is None else thinking
-        knowledge = config.get("default_knowledge", False) if knowledge is None else knowledge
-        connect = config.get("default_connect", False) if connect is None else connect
         actual_thinking = bool(thinking and config.get("support_think"))
         requested_skills = set(skills or [])
-        if knowledge:
-            requested_skills.add("knowledge-search")
-        if connect:
-            requested_skills.add("web-search")
         if skill:
             requested_skills.add(skill)
-        actual_knowledge = bool(
-            "knowledge-search" in requested_skills and config.get("support_knowledge")
-        )
-        actual_connect = bool(
-            "web-search" in requested_skills and config.get("support_connect")
-        )
-        if not actual_knowledge:
-            requested_skills.discard("knowledge-search")
-        if not actual_connect:
-            requested_skills.discard("web-search")
         actual_file = bool(files and config.get("support_file"))
         common = {
             "thinking": actual_thinking,
-            "connect": actual_connect,
             "memory": False,
             "skill": None,
             "skills": sorted(requested_skills),
@@ -760,7 +720,6 @@ class AgentService:
                     config,
                     text,
                     actual_thinking,
-                    False,
                     base_messages,
                     common,
                 )
@@ -769,7 +728,6 @@ class AgentService:
                     config,
                     text,
                     actual_thinking,
-                    False,
                     processed_files,
                     base_messages,
                     common,
@@ -941,23 +899,10 @@ class AgentService:
         config,
         text,
         thinking,
-        connect,
         base_messages,
         context,
     ) -> AsyncIterator[Dict[str, Any]]:
         messages = list(base_messages)
-        if connect:
-            yield cls._step(
-                config, "web_search", "started", "正在执行联网搜索", **context
-            )
-            search_result = await asyncio.to_thread(web_search, text)
-            messages.append(
-                {"role": "system", "content": f"联网搜索结果：\n{search_result}"}
-            )
-            yield cls._step(
-                config, "web_search", "completed", "联网搜索完成", **context
-            )
-
         messages.append({"role": "user", "content": text})
         model = cls.get_model(config["agent_code"], reasoning=thinking, config=config)
         async for chunk in model.astream(messages):
@@ -984,48 +929,18 @@ class AgentService:
         config,
         text,
         thinking,
-        connect,
         processed_files,
         base_messages,
         context,
     ) -> AsyncIterator[Dict[str, Any]]:
         client = cls.get_model(config["agent_code"], config=config)
         messages: List[Dict[str, Any]] = list(base_messages)
-        if connect:
-            messages.append(
-                {
-                    "role": "system",
-                    "content": (
-                        "需要实时信息时调用 web_search 工具，并基于工具结果回答。"
-                    ),
-                }
-            )
         if processed_files:
             content_items = list(processed_files)
             content_items.append({"type": "text", "text": text})
             messages.append({"role": "user", "content": content_items})
         else:
             messages.append({"role": "user", "content": text})
-
-        tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "web_search",
-                    "description": "获取新闻、天气和其他实时信息",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "搜索查询词",
-                            }
-                        },
-                        "required": ["query"],
-                    },
-                },
-            }
-        ] if connect else None
 
         thinking_kwargs = cls._get_thinking_kwargs(
             config["base_url"], config["model_name"], thinking
@@ -1036,40 +951,13 @@ class AgentService:
             "stream": True,
             **thinking_kwargs,
         }
-        if tools:
-            request_kwargs["tools"] = tools
-
-        tool_calls: List[Dict[str, Any]] = []
-        pending_content = ""
         stream = await client.chat.completions.create(**request_kwargs)
         async for chunk in stream:
             if not chunk.choices:
                 continue
             delta = chunk.choices[0].delta
-            if delta.tool_calls:
-                for tool_call_delta in delta.tool_calls:
-                    index = tool_call_delta.index or 0
-                    while index >= len(tool_calls):
-                        tool_calls.append(
-                            {
-                                "id": "",
-                                "type": "function",
-                                "function": {"name": "", "arguments": ""},
-                            }
-                        )
-                    item = tool_calls[index]
-                    if tool_call_delta.id:
-                        item["id"] = tool_call_delta.id
-                    if tool_call_delta.function.name:
-                        item["function"]["name"] = tool_call_delta.function.name
-                    if tool_call_delta.function.arguments:
-                        item["function"]["arguments"] += (
-                            tool_call_delta.function.arguments
-                        )
-
             content = delta.content or ""
             reasoning_content = getattr(delta, "reasoning_content", "") or ""
-            pending_content += content
             if content or reasoning_content:
                 yield cls._event(
                     config,
@@ -1088,82 +976,6 @@ class AgentService:
             node_kind="model",
             **context,
         )
-        if not tool_calls:
-            return
-
-        messages.append(
-            {
-                "role": "assistant",
-                "content": pending_content or None,
-                "tool_calls": tool_calls,
-            }
-        )
-        for tool_call in tool_calls:
-            tool_name = tool_call["function"]["name"]
-            try:
-                tool_args = json.loads(tool_call["function"]["arguments"] or "{}")
-            except json.JSONDecodeError:
-                tool_args = {}
-            query = tool_args.get("query", "")
-            yield cls._step(
-                config,
-                "tool_call",
-                "started",
-                f"正在调用工具：{tool_name}",
-                details={"tool": tool_name, "arguments": tool_args},
-                **context,
-            )
-            if tool_name == "web_search":
-                tool_result = await asyncio.to_thread(web_search, query)
-            else:
-                tool_result = f"不支持的工具: {tool_name}"
-            messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": tool_call["id"],
-                    "content": tool_result,
-                }
-            )
-            yield cls._step(
-                config,
-                "tool_call",
-                "completed",
-                f"工具调用完成：{tool_name}",
-                details={"tool": tool_name},
-                **context,
-            )
-
-        yield cls._step(
-            config, "model_call", "started", "开始工具结果后的模型调用", **context
-        )
-        followup_kwargs = {
-            "model": config["model_name"],
-            "messages": messages,
-            "stream": True,
-            **thinking_kwargs,
-        }
-        followup_stream = await client.chat.completions.create(**followup_kwargs)
-        async for chunk in followup_stream:
-            if not chunk.choices:
-                continue
-            delta = chunk.choices[0].delta
-            content = delta.content or ""
-            reasoning_content = getattr(delta, "reasoning_content", "") or ""
-            if content or reasoning_content:
-                yield cls._event(
-                    config,
-                    event="message",
-                    content=content,
-                    think_message=reasoning_content,
-                    **context,
-                )
-        yield cls._step(
-            config,
-            "model_call",
-            "completed",
-            "工具结果后的模型调用完成",
-            **context,
-        )
 
     @classmethod
     def get_agent_list(cls):
@@ -1177,8 +989,7 @@ class AgentService:
                 release = session.query(AdminVersion).filter_by(resource_id=resource.id, version=resource.published_version).first()
                 if release:
                     defaults[release.payload["agentCode"]] = {"defaultThink": release.payload.get("default_think", False),
-                        "defaultKnowledge": release.payload.get("default_knowledge", False),
-                        "defaultConnect": release.payload.get("default_connect", False), "configVersion": release.version,
+                        "configVersion": release.version,
                         "modelName": release.payload.get("model_name", ""), "modelType": release.payload.get("model_type", "")}
             result = [
                 {
@@ -1193,8 +1004,6 @@ class AgentService:
                     "default": agent.is_default,
                     "supportFile": agent.support_file,
                     "supportThink": agent.support_think,
-                    "supportConnect": agent.support_connect,
-                    "supportKnowledge": agent.support_knowledge,
                     "supportDownload": agent.support_download,
                     **defaults.get(agent.agentcode, {}),
                 }

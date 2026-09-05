@@ -48,8 +48,6 @@ class AgentList(Base):
     is_default = Column(Boolean, default=False, comment='是否默认')
     support_file = Column(Boolean, default=False, comment='是否支持文件')
     support_think = Column(Boolean, default=False, comment='是否支持思考模式')
-    support_connect = Column(Boolean, default=False, comment='是否支持连接')
-    support_knowledge = Column(Boolean, default=False, comment='是否支持知识库')
     support_download = Column(Boolean, default=False, comment='是否支持下载')
     created_at = Column(TIMESTAMP, server_default=func.now(), comment='创建时间')
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), comment='更新时间')

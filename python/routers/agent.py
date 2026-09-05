@@ -14,8 +14,6 @@ class ChatRequest(BaseModel):
     text: str = Field(..., description="对话文本")
     files: str = Field(default="", description="文件URL列表")
     thinking: Optional[bool] = Field(default=None, description="是否启用思考模式")
-    knowledge: Optional[bool] = Field(default=None, description="是否启用知识库检索")
-    connect: Optional[bool] = Field(default=None, description="是否启用联网搜索")
     sessionId: Optional[str] = Field(None, description="会话ID")
     memory: Optional[bool] = Field(
         None,
@@ -39,10 +37,8 @@ async def chat_generator(request: ChatRequest, username: str):
         yield f'data: {json.dumps({"event": "error", "done": True, "error": "智能体不存在或已下线"}, ensure_ascii=False)}\n\n'
         return
     request = request.model_copy(deep=True)
-    for field, capability in (("thinking", "think"), ("knowledge", "knowledge"), ("connect", "connect")):
-        value = getattr(request, field)
-        setattr(request, field, bool(config.get("support_" + capability) and
-            (config.get("default_" + capability, False) if value is None else value)))
+    request.thinking = bool(config.get("support_think") and
+        (config.get("default_think", False) if request.thinking is None else request.thinking))
     versions = {"agentVersion": config.get("config_version"), "workflowVersion": config.get("workflowVersion")}
     full_content = ""
     full_think_message = ""
@@ -67,8 +63,6 @@ async def chat_generator(request: ChatRequest, username: str):
             text=request.text,
             files=request.files,
             thinking=request.thinking,
-            knowledge=request.knowledge,
-            connect=request.connect,
             session_id=effective_session_id,
             username=username,
             memory=request.memory,
@@ -118,9 +112,6 @@ async def chat_generator(request: ChatRequest, username: str):
                     "knowledge": knowledge_data,
                     "artifacts": artifacts,
                     "skills": chunk_data.get("skills", request.skills),
-                    "knowledgeSkill": request.knowledge
-                    or "knowledge-search" in request.skills,
-                    "connectSkill": request.connect or "web-search" in request.skills,
                     "thinking": request.thinking,
                     "status": terminal_status,
                     "complete": True,
@@ -152,9 +143,6 @@ async def chat_generator(request: ChatRequest, username: str):
                     "knowledge": knowledge_data,
                     "artifacts": artifacts,
                     "skills": request.skills,
-                    "knowledgeSkill": request.knowledge
-                    or "knowledge-search" in request.skills,
-                    "connectSkill": request.connect or "web-search" in request.skills,
                     "thinking": request.thinking,
                     "status": "cancelled",
                     "error": "请求已取消",

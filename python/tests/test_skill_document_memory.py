@@ -557,8 +557,6 @@ class ChatPipelineTest(unittest.IsolatedAsyncioTestCase):
             "base_url": "",
             "support_file": True,
             "support_think": True,
-            "support_connect": True,
-            "support_knowledge": True,
         }
 
     async def test_explicit_chart_skill_injects_gpt_vis_system_prompt(self):
@@ -568,7 +566,7 @@ class ChatPipelineTest(unittest.IsolatedAsyncioTestCase):
         captured_messages = []
 
         async def fake_model_stream(
-            _config, _text, _thinking, _connect, base_messages, context
+            _config, _text, _thinking, base_messages, context
         ):
             captured_messages.extend(base_messages)
             yield AgentService._event(
@@ -624,7 +622,7 @@ class ChatPipelineTest(unittest.IsolatedAsyncioTestCase):
         config = self._config()
 
         async def fake_model_stream(
-            _config, _text, _thinking, _connect, _base_messages, context
+            _config, _text, _thinking, _base_messages, context
         ):
             yield AgentService._event(
                 config,
@@ -734,7 +732,7 @@ class ChatPipelineTest(unittest.IsolatedAsyncioTestCase):
         config = self._config()
 
         async def fake_model_stream(
-            _config, _text, _thinking, _connect, _base_messages, context
+            _config, _text, _thinking, _base_messages, context
         ):
             yield AgentService._event(
                 config, event="message", content="报告正文", **context
@@ -787,7 +785,7 @@ class ChatPipelineTest(unittest.IsolatedAsyncioTestCase):
         config = self._config()
 
         async def fake_model_stream(
-            _config, _text, _thinking, _connect, _base_messages, context
+            _config, _text, _thinking, _base_messages, context
         ):
             yield AgentService._event(
                 config, event="message", content="报告正文", **context
@@ -834,13 +832,11 @@ class ChatPipelineTest(unittest.IsolatedAsyncioTestCase):
             "base_url": "",
             "support_file": False,
             "support_think": False,
-            "support_connect": False,
-            "support_knowledge": False,
         }
         captured_messages = []
 
         async def fake_model_stream(
-            _config, _text, _thinking, _connect, base_messages, context
+            _config, _text, _thinking, base_messages, context
         ):
             captured_messages.extend(base_messages)
             yield AgentService._event(
@@ -906,8 +902,6 @@ class ChatPipelineTest(unittest.IsolatedAsyncioTestCase):
             "base_url": "",
             "support_file": True,
             "support_think": False,
-            "support_connect": True,
-            "support_knowledge": True,
         }
         execution_order = []
         captured_messages = []
@@ -922,7 +916,7 @@ class ChatPipelineTest(unittest.IsolatedAsyncioTestCase):
             }
 
         async def fake_model_stream(
-            _config, _text, _thinking, _connect, base_messages, context
+            _config, _text, _thinking, base_messages, context
         ):
             captured_messages.extend(base_messages)
             yield AgentService._event(
@@ -972,12 +966,10 @@ class ChatPipelineTest(unittest.IsolatedAsyncioTestCase):
             "base_url": "",
             "support_file": False,
             "support_think": False,
-            "support_connect": True,
-            "support_knowledge": False,
         }
 
         async def fake_model_stream(
-            _config, _text, _thinking, _connect, _base_messages, context
+            _config, _text, _thinking, _base_messages, context
         ):
             yield AgentService._event(
                 config, event="message", content="降级回答", **context

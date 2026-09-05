@@ -7,8 +7,6 @@ export interface AgentSlot {
 
 export interface AgentDetail {
   defaultThink?: boolean;
-  defaultKnowledge?: boolean;
-  defaultConnect?: boolean;
   configVersion?: number;
   slot?: AgentSlot[];
   agentCode: string;
@@ -18,10 +16,8 @@ export interface AgentDetail {
   model_type: string;
   status: number;
   default: boolean;
-  supportConnect: boolean;
   supportDownload: boolean;
   supportFile: boolean;
-  supportKnowledge: boolean;
   supportThink: boolean;
 }
 
@@ -33,8 +29,6 @@ export interface AgentChat {
   question?: string;
   loading?: boolean;
   thinking?: boolean;
-  knowledgeSkill?: boolean;
-  connectSkill?: boolean;
   knowledge?: KnowledgeDoc[];
   thinkMessage?: string;
   complete?: boolean;

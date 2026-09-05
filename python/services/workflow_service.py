@@ -119,7 +119,7 @@ def validate_graph(graph, skill_resolver=None, agent_code=None):
                 raise ValueError(f'未知变量: {path}')
             if root == 'nodes' and (len(path.split('.')) < 3 or path.split('.')[1] not in prior):
                 raise ValueError(f'变量不是必经上游节点的输出: {path}')
-            if root == 'input' and path.split('.')[1:] not in [['text'], ['files'], ['thinking'], ['knowledge'], ['connect']]:
+            if root == 'input' and path.split('.')[1:] not in [['text'], ['files'], ['thinking']]:
                 raise ValueError(f'未知输入变量: {path}')
         dominators[key] = prior | {key}
     return graph

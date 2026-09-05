@@ -401,13 +401,7 @@ const previewKnowledgeFile = (item: AgentChat) => {
 const regenerateChat = (item: AgentChat) => {
   const lastUserChat = answer.value.findLast((v) => v.role === "user");
   const input: string = lastUserChat?.content || "";
-  sendMessage(
-    input,
-    lastUserChat?.files,
-    item.thinking,
-    item?.knowledgeSkill,
-    item?.connectSkill,
-  );
+  sendMessage(input, lastUserChat?.files, item.thinking);
 };
 
 const stopMessage = () => {
@@ -424,8 +418,6 @@ const sendMessage = async (
   input: string,
   fileList: string = "",
   thinking: boolean = false,
-  knowledge: boolean = false,
-  internet: boolean = false,
 ) => {
   if (!input && !fileList) return;
   const now = Date.now();
@@ -441,8 +433,6 @@ const sendMessage = async (
     content: "",
     loading: true,
     thinking: true,
-    knowledgeSkill: knowledge,
-    connectSkill: internet,
     thinkMessage: "",
     collapse: (now + 2).toString(),
     complete: false,
@@ -462,15 +452,9 @@ const sendMessage = async (
       body: JSON.stringify({
         sessionId: sessionId.value,
         thinking: chatService.getAgentDetail.supportThink && thinking,
-        knowledge: chatService.getAgentDetail.supportKnowledge && knowledge,
-        connect: chatService.getAgentDetail.supportConnect && internet,
         agentCode: chatService.getAgentDetail.agentCode,
         text: input ? input : "帮我分析下文件内容",
         files: fileList,
-        skills: [
-          ...(internet ? ["web-search"] : []),
-          ...(knowledge ? ["knowledge-search"] : []),
-        ],
       }),
       signal: answer.value[answer.value.length - 1]?.signal?.signal,
     });

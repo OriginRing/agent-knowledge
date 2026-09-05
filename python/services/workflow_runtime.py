@@ -16,13 +16,11 @@ active_skill_versions = Counter()
 
 
 async def stream_workflow(config, *, text, files=None, username=None, session_id=None,
-                          thinking=None, knowledge=None, connect=None, memory=None):
+                          thinking=None, memory=None):
     graph = copy.deepcopy(config['workflow'])
     inputs = {'text': text, 'files': (files or []) if config.get('support_file') else []}
-    for field, support in [('thinking', 'think'), ('knowledge', 'knowledge'), ('connect', 'connect')]:
-        requested = {'thinking': thinking, 'knowledge': knowledge, 'connect': connect}[field]
-        inputs[field] = bool(config.get('support_' + support) and
-                             (config.get('default_' + support, False) if requested is None else requested))
+    inputs['thinking'] = bool(config.get('support_think') and
+                              (config.get('default_think', False) if thinking is None else thinking))
     fixed_skills = {}
     run_id = uuid.uuid4().hex
     with get_session('agent-knowledge') as session, session.begin():
@@ -53,14 +51,6 @@ async def stream_workflow(config, *, text, files=None, username=None, session_id
                 if content:
                     base_messages.append({'role': 'system', 'content': content})
         explicit = {s.name for s in fixed_skills.values()}
-        if inputs['knowledge'] and 'knowledge-search' not in explicit:
-            from services.knowledge_service import KnowledgeService
-            result = await asyncio.to_thread(KnowledgeService.search_knowledge, text)
-            base_messages.append({'role': 'system', 'content': as_text(result)})
-        if inputs['connect'] and 'web-search' not in explicit:
-            from services.search_service import SearchService
-            result = await asyncio.to_thread(SearchService.search, text)
-            base_messages.append({'role': 'system', 'content': as_text(result)})
         if inputs['files'] and config.get('support_file') and 'file-reader' not in explicit:
             result = await asyncio.to_thread(SkillService.execute, 'file-reader',
                 agent_code=config['agent_code'], query=text, files=inputs['files'], requester_username=username)
@@ -95,10 +85,6 @@ async def stream_workflow(config, *, text, files=None, username=None, session_id
 
     async def skill_call(data):
         definition = fixed_skills[(data['skillId'], data['skillVersion'])]
-        for name, capability in [('web-search', 'connect'), ('knowledge-search', 'knowledge')]:
-            if (definition.name == name and not config.get('workflow_debug')
-                    and not inputs[capability]):
-                return {'status': 'skipped', 'reason': '本轮未开启' + ('联网搜索' if capability == 'connect' else '知识库检索'), 'context': '', 'data': {}}
         if definition.name == 'file-reader' and not config.get('support_file'):
             raise ValueError('当前智能体不支持文件输入')
         if (definition.kind == 'artifact' or definition.name == 'artifact-generator') and not config.get('support_download'):
@@ -129,7 +115,7 @@ async def stream_workflow(config, *, text, files=None, username=None, session_id
 
     version_fields = {'agentVersion': config.get('config_version'), 'workflowVersion': config.get('workflowVersion'),
                       'agentCode': config['agent_code'], 'agentName': config.get('agent_name', config.get('name', '')),
-                      'thinking': inputs['thinking'], 'connect': inputs['connect'],
+                      'thinking': inputs['thinking'],
                       'skills': [s.name for s in fixed_skills.values()]}
     try:
         await prepare_context()

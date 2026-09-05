@@ -136,11 +136,7 @@ async def debug(request: DebugRequest, username=Depends(require_admin)):
             'support_file': True,
             'support_download': True,
             'support_think': True,
-            'support_connect': True,
-            'support_knowledge': True,
             'default_think': False,
-            'default_connect': False,
-            'default_knowledge': False,
         }
     else:
         if not request.agentId:

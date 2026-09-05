@@ -157,27 +157,6 @@
               />
               <a-divider type="vertical" />
             </template>
-            <template v-if="chatService.getAgentDetail?.supportKnowledge">
-              <a-button
-                :type="knowledge ? 'link' : 'text'"
-                shape="circle"
-                aria-label="连接知识库"
-                @click="connectKnowledge"
-              >
-                <ApiOutlined />
-              </a-button>
-              <a-divider type="vertical" />
-            </template>
-
-            <a-button
-              v-if="chatService.getAgentDetail?.supportConnect"
-              :type="internet ? 'link' : 'text'"
-              shape="circle"
-              aria-label="连接互联网"
-              @click="connectInternet"
-            >
-              <GlobalOutlined />
-            </a-button>
             <div />
           </a-flex>
           <a-flex align="center">
@@ -204,8 +183,6 @@
 <script lang="ts" setup>
 import { computed, nextTick, provide, ref, shallowRef, watch } from "vue";
 import {
-  ApiOutlined,
-  GlobalOutlined,
   PaperClipOutlined,
   CloseCircleOutlined,
   CloseOutlined,
@@ -239,8 +216,6 @@ const chatInput = ref<string>("");
 const quoteContent = ref("");
 const chatService = useChatStore();
 const thinking = ref(false);
-const internet = ref(false);
-const knowledge = ref(false);
 const uploadFiles = ref<
   Array<{
     file: File;
@@ -338,10 +313,6 @@ watch(
   () => {
     const agent = selectedAgent.value;
     thinking.value = Boolean(agent?.supportThink && agent.defaultThink);
-    internet.value = Boolean(agent?.supportConnect && agent.defaultConnect);
-    knowledge.value = Boolean(
-      agent?.supportKnowledge && agent.defaultKnowledge,
-    );
   },
   { immediate: true },
 );
@@ -351,12 +322,6 @@ const clearAgent = () => {
   thinking.value = Boolean(
     defaultAgent.value?.supportThink && defaultAgent.value.defaultThink,
   );
-  internet.value = Boolean(
-    defaultAgent.value?.supportConnect && defaultAgent.value.defaultConnect,
-  );
-  knowledge.value = Boolean(
-    defaultAgent.value?.supportKnowledge && defaultAgent.value.defaultKnowledge,
-  );
 };
 
 provide(agentMentionKey, {
@@ -364,14 +329,6 @@ provide(agentMentionKey, {
   editorApi: mentionEditorApi,
   clearAgent,
 });
-
-const connectInternet = () => {
-  internet.value = !internet.value;
-};
-
-const connectKnowledge = () => {
-  knowledge.value = !knowledge.value;
-};
 
 const ensureAgentSelected = () => {
   if (selectedAgent.value) return true;
@@ -406,8 +363,6 @@ const sendCurrentQuestion = () => {
       .filter(Boolean)
       .join(","),
     thinking.value,
-    knowledge.value,
-    internet.value,
   );
   chatInput.value = "";
   clearQuote();

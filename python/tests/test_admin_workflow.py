@@ -128,11 +128,17 @@ class AdminStorageTest(unittest.TestCase):
         flow = admin.save('workflows', graph())
         flow = admin.publish('workflows', flow['id'], flow['revision'])
         payload = {'name': '测试智能体', 'modelId': self.model['id'], 'slot': [],
-                   'workflowId': flow['id'], 'workflowVersion': flow['publishedVersion'], 'support_think': True, 'default_think': True}
+                   'workflowId': flow['id'], 'workflowVersion': flow['publishedVersion'],
+                   'support_think': True, 'default_think': True,
+                   'support_connect': True, 'default_knowledge': True}
         agent = admin.save('agents', payload)
+        self.assertNotIn('support_connect', agent['draft'])
+        self.assertNotIn('default_knowledge', agent['draft'])
         agent = admin.publish('agents', agent['id'], agent['revision'])
         code = agent['draft']['agentCode']
         first = admin.published_config(code)
+        self.assertNotIn('support_connect', first)
+        self.assertNotIn('default_knowledge', first)
         changed = {**agent['draft'], 'description': 'next'}
         updated = admin.save('agents', changed, agent['id'], agent['revision'])
         self.assertEqual(admin.published_config(code)['model_name'], 'test')
@@ -377,7 +383,7 @@ class RuntimeAdapterTest(unittest.IsolatedAsyncioTestCase):
             with self.factory() as session:
                 self.assertEqual(session.query(AdminSkillLease).count(), 0)
 
-    async def test_search_context_reaches_model_and_respects_switch(self):
+    async def test_search_context_reaches_model_without_capability_switch(self):
         from types import SimpleNamespace
         from services.workflow_runtime import stream_workflow
         from agent.agent_service import AgentService
@@ -397,8 +403,7 @@ class RuntimeAdapterTest(unittest.IsolatedAsyncioTestCase):
                 captured.append(messages)
                 yield SimpleNamespace(content='回答', additional_kwargs={})
         result = {'context': '最新搜索资料', 'items': [{'title': '来源', 'url': 'https://example.com'}]}
-        config = {'agent_code': 'test', 'workflow': flow, 'model_type': 'ollama',
-                  'support_connect': True, 'default_connect': True}
+        config = {'agent_code': 'test', 'workflow': flow, 'model_type': 'ollama'}
         with patch('services.workflow_runtime.get_session', lambda _: self.factory()), \
              patch.object(AgentService, 'get_model', return_value=Model()), \
              patch('services.skill_service.SkillService.get_handler', return_value=lambda **kw: result) as handler:
@@ -410,13 +415,11 @@ class RuntimeAdapterTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(search['title'], 'web-search')
             self.assertEqual(search['details']['output'], result)
             self.assertEqual(events[-1]['content'], '回答')
-            events = [e async for e in stream_workflow(config, text='问题', connect=False, memory=False)]
-            self.assertFalse(any('最新搜索资料' in m['content'] for m in captured[-1]))
-            self.assertEqual(handler.call_count, 1)
-            skipped = next(e['node']['details']['output'] for e in events
-                           if e.get('node', {}).get('id') == 'search' and e['node']['status'] == 'success')
-            self.assertEqual(skipped['status'], 'skipped')
-            self.assertIn('联网搜索', skipped['reason'])
+            events = [e async for e in stream_workflow(config, text='再次提问', memory=False)]
+            self.assertTrue(any('最新搜索资料' in m['content'] for m in captured[-1]))
+            self.assertEqual(handler.call_count, 2)
+            self.assertTrue(any(e.get('node', {}).get('id') == 'search'
+                                and e['node']['status'] == 'success' for e in events))
 
     async def test_skill_presentation_is_preserved_in_following_model_output(self):
         from types import SimpleNamespace

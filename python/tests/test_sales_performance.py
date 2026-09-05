@@ -347,8 +347,6 @@ class SalesAgentPipelineTest(unittest.IsolatedAsyncioTestCase):
             "default_skill": "sales-performance",
             "support_file": False,
             "support_think": False,
-            "support_connect": False,
-            "support_knowledge": False,
             "support_download": True,
         }
 
@@ -412,7 +410,7 @@ class SalesAgentPipelineTest(unittest.IsolatedAsyncioTestCase):
             }
 
         async def fake_model_stream(
-            _config, _text, _thinking, _connect, base_messages, context
+            _config, _text, _thinking, base_messages, context
         ):
             self.assertTrue(
                 any("只输出趋势解读" in item["content"] for item in base_messages)

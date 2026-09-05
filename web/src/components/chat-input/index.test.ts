@@ -17,11 +17,9 @@ vi.mock("@ant-design/icons-vue", () => {
       setup: () => () => h("span", { class: `icon-${name}` }),
     });
   return {
-    ApiOutlined: icon("api"),
     CloseCircleOutlined: icon("close-circle"),
     CloseOutlined: icon("close"),
     ExclamationOutlined: icon("exclamation"),
-    GlobalOutlined: icon("global"),
     PaperClipOutlined: icon("paper-clip"),
   };
 });
@@ -97,10 +95,8 @@ const agents: AgentDetail[] = [
     model_type: "test",
     status: 1,
     default: true,
-    supportConnect: false,
     supportDownload: false,
     supportFile: false,
-    supportKnowledge: false,
     supportThink: false,
   },
   {
@@ -111,10 +107,8 @@ const agents: AgentDetail[] = [
     model_type: "test",
     status: 1,
     default: false,
-    supportConnect: false,
     supportDownload: false,
     supportFile: false,
-    supportKnowledge: false,
     supportThink: false,
   },
 ];
@@ -186,37 +180,27 @@ describe("chat input agent mention", () => {
     );
   });
 
-  it("uses published capability defaults and resets them when the agent changes", async () => {
+  it("uses the thinking default and resets it when the agent changes", async () => {
     const store = useChatStore(pinia);
     store.setAgentDetail({
       ...agents[0]!,
       supportThink: true,
       defaultThink: true,
-      supportKnowledge: true,
-      defaultKnowledge: true,
-      defaultConnect: true,
-      supportConnect: false,
     });
     const wrapper = mount(ChatInput, { global: { plugins: [pinia] } });
+    expect(wrapper.find('[aria-label="连接知识库"]').exists()).toBe(false);
+    expect(wrapper.find('[aria-label="连接互联网"]').exists()).toBe(false);
     const editor = wrapper.get(".agent-mention-editor");
     editor.element.textContent = "第一条";
     await editor.trigger("input");
     await editor.trigger("keydown", { key: "Enter" });
-    expect(wrapper.emitted("sendMessage")?.[0]?.slice(2)).toEqual([
-      true,
-      true,
-      false,
-    ]);
+    expect(wrapper.emitted("sendMessage")?.[0]?.slice(2)).toEqual([true]);
     store.setAgentDetail(agents[1]!);
     await wrapper.vm.$nextTick();
     editor.element.textContent = "第二条";
     await editor.trigger("input");
     await editor.trigger("keydown", { key: "Enter" });
-    expect(wrapper.emitted("sendMessage")?.[1]?.slice(2)).toEqual([
-      false,
-      false,
-      false,
-    ]);
+    expect(wrapper.emitted("sendMessage")?.[1]?.slice(2)).toEqual([false]);
   });
 
   it("uses the default agent without a mention on initialization", () => {

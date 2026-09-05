@@ -32,8 +32,9 @@ class AgentList(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     agentcode = Column(String(6), nullable=False, unique=True, comment='智能体标识（六位数字）')
     agentname = Column(String(100), nullable=False, comment='智能体名称')
-    model_type = Column(String(20), nullable=False, comment='模型类型：ollama/api')
-    model_name = Column(String(200), nullable=False, comment='模型名称')
+    model_id = Column(String(64), nullable=True, comment='模型配置标识')
+    model_type = Column(String(20), nullable=True, comment='旧模型类型（已迁移）')
+    model_name = Column(String(200), nullable=True, comment='旧模型名称（已迁移）')
     api_key_name = Column(String(100), nullable=True, comment='API密钥名称（.env中的key）')
     base_url = Column(String(500), nullable=True, comment='API基础URL')
     default_skill = Column(

@@ -40,42 +40,7 @@ class AgentService:
     def get_agent_config(cls, agent_code):
         from services.admin_service import published_config
         published = published_config(agent_code)
-        if published:
-            return None if published.get("disabled") else published
-        session = None
-        try:
-            session = get_session("agent-knowledge")
-            agent = (
-                session.query(AgentList)
-                .filter_by(agentcode=agent_code, status=1)
-                .first()
-            )
-            if not agent:
-                return None
-            return {
-                "id": agent.id,
-                "agent_code": agent.agentcode,
-                "agent_name": agent.agentname,
-                "model_type": agent.model_type,
-                "model_name": agent.model_name,
-                "api_key_name": agent.api_key_name,
-                "base_url": agent.base_url,
-                "default_skill": agent.default_skill,
-                "status": agent.status,
-                "description": agent.description,
-                "is_default": agent.is_default,
-                "support_file": agent.support_file,
-                "support_think": agent.support_think,
-                "support_connect": agent.support_connect,
-                "support_knowledge": agent.support_knowledge,
-                "support_download": agent.support_download,
-            }
-        except Exception as exc:
-            print(f"获取 agent 配置失败: {exc}")
-            return None
-        finally:
-            if session:
-                session.close()
+        return None if not published or published.get("disabled") else published
 
     @classmethod
     def get_model(cls, agent_code, reasoning=False, config=None):
@@ -1213,15 +1178,16 @@ class AgentService:
                 if release:
                     defaults[release.payload["agentCode"]] = {"defaultThink": release.payload.get("default_think", False),
                         "defaultKnowledge": release.payload.get("default_knowledge", False),
-                        "defaultConnect": release.payload.get("default_connect", False), "configVersion": release.version}
+                        "defaultConnect": release.payload.get("default_connect", False), "configVersion": release.version,
+                        "modelName": release.payload.get("model_name", ""), "modelType": release.payload.get("model_type", "")}
             result = [
                 {
                     "id": agent.id,
                     "agentCode": agent.agentcode,
                     "agentName": agent.agentname,
-                    "agentValue": agent.model_name,
+                    "agentValue": defaults.get(agent.agentcode, {}).get("modelName", ""),
                     "slot": agent.slot or [],
-                    "model_type": agent.model_type,
+                    "model_type": defaults.get(agent.agentcode, {}).get("modelType", ""),
                     "status": agent.status,
                     "description": agent.description,
                     "default": agent.is_default,

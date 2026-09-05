@@ -7,6 +7,8 @@ import time
 REF = re.compile(r'\{\{\s*([\w.-]+)\s*\}\}')
 KINDS = {'start', 'model', 'skill', 'condition', 'end'}
 OPS = {'eq', 'ne', 'contains', 'gt', 'gte', 'lt', 'lte', 'exists'}
+NODE_TITLES = {'start': '开始', 'model': '模型', 'skill': 'Skill',
+               'condition': '条件分支', 'end': '结束'}
 
 
 def lookup(path, context):
@@ -36,6 +38,14 @@ def resolve(value, context):
 
 def as_text(value):
     return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+
+
+def skill_handoff(output):
+    """Expose the full Skill result while keeping nested data fields convenient."""
+    if not isinstance(output, dict):
+        return output
+    data = output.get('data')
+    return {**output, **data} if isinstance(data, dict) else output
 
 
 def validate_graph(graph, skill_resolver=None, agent_code=None):
@@ -138,24 +148,32 @@ async def execute_graph(graph, inputs, model_call, skill_call):
     validate_graph(graph)
     nodes = {n['id']: n for n in graph['nodes']}
     context = {'input': inputs, 'nodes': {}}
+    last_skill_output = {}
     current = next(n['id'] for n in graph['nodes'] if n['type'] == 'start')
     while current:
         node = nodes[current]
         kind = node['type']
         started = time.monotonic()
+        data = node.get('data', {})
+        semantic_name = data.get('skillName') if kind == 'skill' else kind
+        title = str(data.get('label') or '').strip() or data.get('skillName') or NODE_TITLES[kind]
         display = {'id': current, 'kind': kind if kind in {'model', 'skill'} else 'pipeline',
-                   'name': current, 'title': node.get('data', {}).get('label', kind)}
+                   'name': semantic_name or kind, 'title': title, 'summary': title}
         yield {'event': 'node', 'node': {**display, 'status': 'running', 'details': {}}}
         try:
-            data = resolve(node.get('data', {}), context)
+            data = resolve(data, context)
             if kind == 'start':
                 output = inputs
             elif kind == 'model':
                 output = await model_call(data)
             elif kind == 'skill':
+                arguments = dict(data.get('arguments') or {})
+                arguments.setdefault('upstream_data', last_skill_output)
+                data = {**data, 'arguments': arguments}
                 output = await skill_call(data)
                 if output.get('stopPipeline'):
                     raise ValueError(output.get('directResponse') or 'Skill 拒绝继续执行')
+                last_skill_output = skill_handoff(output)
             elif kind == 'condition':
                 output = compare(data.get('left'), data['operator'], data.get('right'))
             else:

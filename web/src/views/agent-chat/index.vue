@@ -503,6 +503,7 @@ const sendMessage = async (
       }>;
 
       for (const parsed of events) {
+        console.log(parsed);
         const assistant = answer.value.find(
           (item) => item.key === assistantKey,
         );

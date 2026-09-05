@@ -11,6 +11,7 @@ const ready = ref(false),
   password = ref("");
 const labels: Record<string, string> = {
   agents: "智能体开发",
+  models: "模型管理",
   skills: "Skill 管理",
   workflows: "工作流配置",
   knowledge: "知识库管理",

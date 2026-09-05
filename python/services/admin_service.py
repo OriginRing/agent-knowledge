@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func
 from db.sqlalchemy_connection import get_session
-from models.admin_models import AdminResource, AdminVersion, AdminSkillLease
+from models.admin_models import AdminResource, AdminVersion, AdminSkillLease, AdminModel
 from models.db_models import AgentList
 from services.skill_service import SkillService, SkillDefinition
 from services.workflow_service import validate_graph
@@ -25,10 +25,7 @@ KINDS = {'agents', 'workflows', 'skills'}
 class AgentDraft(BaseModel):
     model_config = ConfigDict(extra='allow')
     name: str = Field(min_length=1, max_length=100)
-    model_type: str
-    model_name: str = Field(min_length=1, max_length=200)
-    base_url: str | None = Field(default=None, max_length=500)
-    api_key_name: str | None = Field(default=None, max_length=100)
+    modelId: str = Field(min_length=1, max_length=64)
     system_prompt: str = ''
     description: str | None = ''
     slot: list = Field(default_factory=list)
@@ -120,6 +117,78 @@ def workflow_usage(session):
     return usage
 
 
+def model_record(row):
+    return {'id': row.id, 'name': row.name, 'modelType': row.model_type,
+            'modelName': row.model_name, 'baseUrl': row.base_url or '',
+            'apiKeyName': row.api_key_name or '', 'revision': row.revision}
+
+
+def list_models():
+    with get_session('agent-knowledge') as session:
+        return [model_record(row) for row in session.query(AdminModel).order_by(AdminModel.name)]
+
+
+def model_agent_ids(session, key):
+    result = set()
+    agents = {row.id: row for row in session.query(AdminResource).filter_by(kind='agents')
+              if not row.draft.get('_deleted')}
+    for agent_id, agent in agents.items():
+        if agent.draft.get('modelId') == key:
+            result.add(agent_id)
+    for release in session.query(AdminVersion):
+        if release.resource_id in agents and release.payload.get('modelId') == key:
+            result.add(release.resource_id)
+    return result
+
+
+def save_model(payload, key=None, revision=None):
+    name, model_type, model_name = (str(payload.get(x, '')).strip()
+                                    for x in ('name', 'modelType', 'modelName'))
+    if not name or not model_name or model_type not in {'ollama', 'api'}:
+        fail('请填写模型配置名称、模型类型和模型名称')
+    base_url = str(payload.get('baseUrl', '')).strip()
+    api_key_name = str(payload.get('apiKeyName', '')).strip()
+    from urllib.parse import urlparse
+    address = base_url or ('http://127.0.0.1:11434' if model_type == 'ollama' else '')
+    parsed = urlparse(address)
+    if parsed.scheme not in {'http', 'https'} or not parsed.hostname or parsed.username or parsed.password:
+        fail('模型地址必须是有效 HTTP(S) 地址，不能包含凭据')
+    if model_type == 'api' and not re.fullmatch(r'[A-Z_][A-Z0-9_]*', api_key_name):
+        fail('云端模型必须填写有效的密钥环境变量名')
+    with get_session('agent-knowledge') as session, session.begin():
+        if key:
+            row = session.query(AdminModel).filter_by(id=key).with_for_update().first()
+            if not row: fail('模型配置不存在', 404)
+            if row.revision != revision: fail('内容已被其他操作修改，请刷新后重试', 409)
+            row.revision += 1
+        else:
+            row = AdminModel(id='model-' + uuid.uuid4().hex, revision=1)
+            session.add(row)
+        row.name, row.model_type, row.model_name = name, model_type, model_name
+        row.base_url, row.api_key_name = base_url or None, api_key_name or None
+        affected = model_agent_ids(session, key) if key else set()
+        for agent in session.query(AdminResource).filter_by(kind='agents'):
+            if agent.id in affected:
+                agent.draft = {**agent.draft, 'needsPublish': True}
+                agent.online = 0
+                agent.revision += 1
+                projected = session.query(AgentList).filter_by(agentcode=agent.draft['agentCode']).first()
+                if projected: projected.status = 0
+        session.flush()
+        return model_record(row)
+
+
+def delete_model(key, revision):
+    with get_session('agent-knowledge') as session, session.begin():
+        row = session.query(AdminModel).filter_by(id=key).with_for_update().first()
+        if not row: fail('模型配置不存在', 404)
+        if row.revision != revision: fail('内容已被其他操作修改，请刷新后重试', 409)
+        count = len(model_agent_ids(session, key))
+        if count: fail(f'模型正被 {count} 个智能体使用，不能删除', 409)
+        session.delete(row)
+        return {'deleted': True}
+
+
 def delete_resource(kind, key, revision):
     if kind not in {'agents', 'workflows'}:
         fail('不支持删除此资源', 404)
@@ -174,6 +243,10 @@ def save(kind, payload, key=None, revision=None):
     payload = copy.deepcopy(payload)
     payload.pop('_deleted', None)
     payload.pop('needsPublish', None)
+    if kind == 'agents':
+        for field in ('model_type', 'model_name', 'base_url', 'api_key_name', 'modelRevision',
+                      'workflowVersion', 'legacy'):
+            payload.pop(field, None)
     payload['name'] = name
     if kind == 'workflows':
         for index, node in enumerate(payload.get('nodes') or []):
@@ -213,19 +286,25 @@ def save(kind, payload, key=None, revision=None):
         return record(row)
 
 
-def validate_agent(payload, session):
+def resolve_agent_model(payload, session, lock=False):
+    """Expand the model selected by an agent draft into runtime configuration."""
     payload.update(AgentDraft.model_validate(payload).model_dump())
-    if payload.get('model_type') not in {'ollama', 'api'} or not payload.get('model_name', '').strip():
-        fail('请选择模型类型并填写模型名称')
-    from urllib.parse import urlparse
-    address = payload.get('base_url') or ('http://127.0.0.1:11434' if payload['model_type'] == 'ollama' else '')
-    url = urlparse(address)
-    if url.scheme not in {'http', 'https'} or not url.hostname or url.username or url.password:
-        fail('模型地址必须是有效 HTTP(S) 地址，不能包含凭据')
+    query = session.query(AdminModel).filter_by(id=payload['modelId'])
+    model = (query.with_for_update() if lock else query).first()
+    if not model:
+        fail('请选择有效模型')
+    payload.update(model_type=model.model_type, model_name=model.model_name,
+                   base_url=model.base_url or '', api_key_name=model.api_key_name or '',
+                   modelRevision=model.revision)
     if payload['model_type'] == 'api':
         key = payload.get('api_key_name') or ''
         if not re.fullmatch(r'[A-Z_][A-Z0-9_]*', key) or not os.getenv(key):
             fail('密钥环境变量无效或尚未在服务端配置')
+    return payload
+
+
+def validate_agent(payload, session):
+    resolve_agent_model(payload, session, lock=True)
     for capability in ('think', 'connect', 'knowledge'):
         if payload.get(f'default_{capability}') and not payload.get(f'support_{capability}'):
             fail('默认开启的能力必须同时启用支持开关')
@@ -284,7 +363,8 @@ def project_agent(session, payload, online):
         row = AgentList(agentcode=payload['agentCode'])
         session.add(row)
     row.agentname = payload['name']
-    for field in ('model_type', 'model_name', 'base_url', 'api_key_name', 'description', 'slot',
+    row.model_id = payload['modelId']
+    for field in ('description', 'slot',
                   'support_file', 'support_think', 'support_connect', 'support_knowledge', 'support_download'):
         if field in payload:
             setattr(row, field, payload[field])
@@ -454,17 +534,41 @@ def delete_skill(key, version):
 def bootstrap():
     """Idempotent import; never rewrites an existing draft or release."""
     with get_session('agent-knowledge') as session, session.begin():
-        for agent in session.query(AgentList).all():
-            key = 'agent-' + agent.agentcode
-            if session.get(AdminResource, key):
-                continue
-            payload = {c.name: getattr(agent, c.name) for c in AgentList.__table__.columns
-                       if c.name not in {'created_at', 'updated_at', 'id'}}
-            payload.update(name=agent.agentname, agentCode=agent.agentcode, legacy=True)
-            row = AdminResource(id=key, kind='agents', name=agent.agentname, revision=1, draft=payload,
-                                online=agent.status, published_version=1)
-            session.add(row)
-            session.add(AdminVersion(resource_id=key, version=1, payload=payload))
+        removed_image_skill = session.get(AdminResource, 'skill-image-to-document')
+        if removed_image_skill and removed_image_skill.draft.get('builtin'):
+            session.query(AdminSkillLease).filter_by(skill_id=removed_image_skill.id).delete()
+            session.query(AdminVersion).filter_by(resource_id=removed_image_skill.id).delete()
+            session.delete(removed_image_skill)
+        marker = session.get(AdminResource, 'migration-models-v1')
+        if not marker:
+            candidates = []
+            for agent in session.query(AgentList):
+                candidates.append((agent.agentname, agent.model_type, agent.model_name,
+                                   agent.base_url, agent.api_key_name))
+                agent.status = 0
+            for agent in session.query(AdminResource).filter_by(kind='agents'):
+                data = agent.draft
+                if data.get('model_type') and data.get('model_name'):
+                    candidates.append((data.get('model_name'), data['model_type'], data['model_name'],
+                                       data.get('base_url'), data.get('api_key_name')))
+                agent.draft = {**data, '_deleted': True}
+                agent.online = 0
+                agent.revision += 1
+            seen = set()
+            for name, model_type, model_name, base_url, api_key_name in candidates:
+                signature = (model_type, model_name, base_url or '', api_key_name or '')
+                if signature in seen: continue
+                seen.add(signature)
+                session.add(AdminModel(id='model-' + uuid.uuid5(uuid.NAMESPACE_URL, repr(signature)).hex,
+                    name=name or model_name, model_type=model_type, model_name=model_name,
+                    base_url=base_url, api_key_name=api_key_name, revision=1))
+            session.query(AgentList).update({'model_type': None, 'model_name': None,
+                                             'base_url': None, 'api_key_name': None})
+            session.add(AdminResource(id='migration-models-v1', kind='state', name='model migration',
+                                      revision=1, online=0, draft={'done': True}))
+        if session.query(AdminModel).count():
+            session.query(AgentList).update({'model_type': None, 'model_name': None,
+                                             'base_url': None, 'api_key_name': None})
         for skill in SkillService.load_skills(refresh=True).values():
             key = 'skill-' + skill.name
             if session.get(AdminResource, key):
@@ -510,3 +614,14 @@ def bootstrap():
             if resource.published_version:
                 session.query(AdminVersion).filter(AdminVersion.resource_id == resource.id,
                     AdminVersion.version != resource.published_version).delete()
+        # agent_list is only a user-list projection of a workflow-backed admin agent.
+        valid_codes = set()
+        for resource in session.query(AdminResource).filter_by(kind='agents'):
+            if resource.draft.get('_deleted') or not resource.published_version:
+                continue
+            release = session.query(AdminVersion).filter_by(
+                resource_id=resource.id, version=resource.published_version).first()
+            if release and release.payload.get('workflow') and release.payload.get('workflowId'):
+                valid_codes.add(release.payload.get('agentCode'))
+        session.query(AgentList).filter(~AgentList.agentcode.in_(valid_codes)).delete(
+            synchronize_session=False)

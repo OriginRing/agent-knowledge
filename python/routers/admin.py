@@ -62,7 +62,8 @@ class RevisionRequest(BaseModel):
 
 
 class DebugRequest(BaseModel):
-    agentId: str
+    agentId: str | None = None
+    modelId: str | None = None
     workflowId: str | None = None
     text: str = Field(min_length=1, max_length=20000)
     files: list[str] = Field(default_factory=list)
@@ -71,6 +72,26 @@ class DebugRequest(BaseModel):
 @router.get('/me')
 def me(username=Depends(require_admin)):
     return ok({'username': username, 'role': 'admin'})
+
+
+@router.get('/models')
+def models():
+    return ok(service.list_models())
+
+
+@router.post('/models')
+def create_model(request: SaveRequest):
+    return ok(service.save_model(request.draft))
+
+
+@router.put('/models/{key}')
+def update_model(key: str, request: SaveRequest):
+    return ok(service.save_model(request.draft, key, request.revision))
+
+
+@router.delete('/models/{key}')
+def remove_model(key: str, request: RevisionRequest):
+    return ok(service.delete_model(key, request.revision))
 
 
 @router.post('/skills/upload')
@@ -102,15 +123,34 @@ def validate(key: str):
 @router.post('/debug')
 async def debug(request: DebugRequest, username=Depends(require_admin)):
     from services.workflow_runtime import stream_workflow
-    config = service.detail('agents', request.agentId)['draft'].copy()
     if request.workflowId:
+        if not request.modelId:
+            raise HTTPException(400, '工作流调试请选择模型')
         graph = service.detail('workflows', request.workflowId)['draft']
-        config['workflow'] = graph
+        config = {
+            'name': '工作流调试',
+            'agentCode': 'workflow-debug',
+            'modelId': request.modelId,
+            'workflow': graph,
+            'workflow_debug': True,
+            'support_file': True,
+            'support_download': True,
+            'support_think': True,
+            'support_connect': True,
+            'support_knowledge': True,
+            'default_think': False,
+            'default_connect': False,
+            'default_knowledge': False,
+        }
     else:
+        if not request.agentId:
+            raise HTTPException(400, '智能体调试请选择智能体')
+        config = service.detail('agents', request.agentId)['draft'].copy()
         with get_session('agent-knowledge') as session:
             config['workflow'] = service.get_row(session, 'workflows', config.get('workflowId')).draft
     try:
         with get_session('agent-knowledge') as session:
+            service.resolve_agent_model(config, session)
             config['workflow'] = service.latest_graph(session, config['workflow'])
             validate_graph(config['workflow'], lambda i, v, a: service.skill_definition(session, i, v, a), config['agentCode'])
     except (ValueError, KeyError, TypeError, PermissionError) as exc:

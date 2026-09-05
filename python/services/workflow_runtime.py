@@ -1,5 +1,6 @@
 """Adapters from the workflow interpreter to the existing model and Skill services."""
 import asyncio
+import copy
 import inspect
 import anyio
 import uuid
@@ -16,7 +17,7 @@ active_skill_versions = Counter()
 
 async def stream_workflow(config, *, text, files=None, username=None, session_id=None,
                           thinking=None, knowledge=None, connect=None, memory=None):
-    graph = config['workflow']
+    graph = copy.deepcopy(config['workflow'])
     inputs = {'text': text, 'files': (files or []) if config.get('support_file') else []}
     for field, support in [('thinking', 'think'), ('knowledge', 'knowledge'), ('connect', 'connect')]:
         requested = {'thinking': thinking, 'knowledge': knowledge, 'connect': connect}[field]
@@ -30,9 +31,14 @@ async def stream_workflow(config, *, text, files=None, username=None, session_id
         for key in keys:
             fixed_skills[key] = skill_definition(session, *key, config['agent_code'])
             session.add(AdminSkillLease(run_id=run_id, skill_id=key[0], skill_version=key[1]))
+    for node in graph['nodes']:
+        if node['type'] == 'skill':
+            key = (node['data']['skillId'], node['data']['skillVersion'])
+            node['data']['skillName'] = fixed_skills[key].name
     for key in fixed_skills:
         active_skill_versions[key] += 1
     base_messages = []
+    latest_presentation = ''
     async def prepare_context():
         if config.get('system_prompt'):
             base_messages.append({'role': 'system', 'content': config['system_prompt']})
@@ -83,12 +89,15 @@ async def stream_workflow(config, *, text, files=None, username=None, session_id
                         reasoning += getattr(delta, 'reasoning_content', '') or ''
             finally:
                 await stream.close()
+        if latest_presentation and latest_presentation not in content:
+            content = (latest_presentation + '\n\n' + content).strip()
         return {'text': content, 'reasoning': reasoning}
 
     async def skill_call(data):
         definition = fixed_skills[(data['skillId'], data['skillVersion'])]
         for name, capability in [('web-search', 'connect'), ('knowledge-search', 'knowledge')]:
-            if definition.name == name and not inputs[capability]:
+            if (definition.name == name and not config.get('workflow_debug')
+                    and not inputs[capability]):
                 return {'status': 'skipped', 'reason': '本轮未开启' + ('联网搜索' if capability == 'connect' else '知识库检索'), 'context': '', 'data': {}}
         if definition.name == 'file-reader' and not config.get('support_file'):
             raise ValueError('当前智能体不支持文件输入')
@@ -133,6 +142,10 @@ async def stream_workflow(config, *, text, files=None, username=None, session_id
                 if output.get('context') and output.get('status') != 'skipped':
                     base_messages.append({'role': 'system', 'content':
                         '以下是工作流 Skill 返回的参考资料，请结合用户问题使用：\n' + as_text(output['context'])})
+                if output.get('presentation') and output.get('status') != 'skipped':
+                    latest_presentation = as_text(output['presentation'])
+                    base_messages.append({'role': 'system', 'content':
+                        '以下是上游 Skill 生成的展示内容，回答时必须原样保留：\n' + latest_presentation})
             yield {**version_fields, **event}
     except asyncio.CancelledError:
         raise

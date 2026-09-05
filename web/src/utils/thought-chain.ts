@@ -16,7 +16,6 @@ export type AssistantMessageStatus =
 
 const SKILL_LABELS: Record<string, string> = {
   "file-reader": "文件读取",
-  "image-to-document": "图片生成文档",
   "web-search": "联网搜索",
   "knowledge-search": "知识库检索",
   "artifact-generator": "文件生成",
@@ -26,6 +25,37 @@ const SKILL_LABELS: Record<string, string> = {
 
 export const getSkillDisplayName = (skill: string): string =>
   SKILL_LABELS[skill] ?? skill;
+
+const WORKFLOW_NODE_LABELS: Record<string, string> = {
+  start: "开始",
+  model: "模型",
+  condition: "条件分支",
+  end: "结束",
+};
+
+export const getWorkflowNodeTitle = (node: ChatNode): string => {
+  const title = node.summary || node.title;
+  if (node.kind === "skill") {
+    const automaticTitle =
+      !title ||
+      title === node.id ||
+      title === node.name ||
+      /^skill-[a-z0-9]+$/i.test(title);
+    if (!automaticTitle) return title;
+    const skillName = node.name && node.name !== node.id ? node.name : title;
+    if (
+      !skillName ||
+      skillName === node.id ||
+      /^skill-[a-z0-9]+$/i.test(skillName)
+    )
+      return "Skill";
+    return getSkillDisplayName(skillName);
+  }
+  if (!title || title === node.id || title === node.name) {
+    return WORKFLOW_NODE_LABELS[node.name] ?? title ?? "工作流节点";
+  }
+  return WORKFLOW_NODE_LABELS[title] ?? title;
+};
 
 export const formatThoughtDuration = (milliseconds: number): string =>
   `${(Math.max(0, milliseconds) / 1000).toFixed(1)}s`;

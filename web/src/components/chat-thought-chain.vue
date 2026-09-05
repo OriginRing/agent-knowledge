@@ -5,7 +5,7 @@
     class="thought-chain-shell"
     :bordered="false"
   >
-    <a-collapse-panel key="chain">
+    <a-collapse-panel key="chain" :show-arrow="false">
       <template #header>
         <a-flex class="thought-chain-summary" align="center" gap="8">
           <BulbOutlined v-if="chainLabel === '开始思考'" class="status-start" />
@@ -65,6 +65,7 @@ import {
   getGeneratedFiles,
   getSkillDisplayName,
   getThoughtChainLabel,
+  getWorkflowNodeTitle,
   openGeneratedFilePreview,
   toThoughtChainStatus,
   type AssistantMessageStatus,
@@ -334,7 +335,9 @@ const renderNodeContent = (sourceNode: ChatNode) => {
       innerHTML: renderMarkdown(node.details.reasoning),
     });
   }
+  console.log(node);
   const detailFiles = node.details?.files ?? [];
+  console.log(detailFiles);
   const parsedFiles = detailFiles.filter(
     (file): file is ParsedFileDetail => "url" in file,
   );
@@ -390,7 +393,7 @@ const renderNodeContent = (sourceNode: ChatNode) => {
 const items = computed<ThoughtChainItem[]>(() =>
   (props.nodes ?? []).map((node) => ({
     key: node.id,
-    title: node.summary || node.title,
+    title: getWorkflowNodeTitle(node),
     description: statusLabel(node),
     status: toThoughtChainStatus(node.status),
     icon: statusIcon(node),
@@ -402,7 +405,8 @@ const items = computed<ThoughtChainItem[]>(() =>
 
 <style scoped lang="less">
 .thought-chain-shell {
-  width: min(760px, 100%);
+  width: clamp(420px, 56vw, 760px);
+  max-width: 100%;
   overflow: hidden;
   border: 1px solid var(--app-border-subtle);
   border-radius: 18px;
@@ -448,6 +452,18 @@ const items = computed<ThoughtChainItem[]>(() =>
   padding: 8px 16px;
   color: var(--app-text-secondary);
   border-radius: 18px;
+}
+
+:deep(.ant-thought-chain-item-collapse-icon) {
+  display: none;
+}
+
+:deep(.ant-thought-chain-item-header) {
+  pointer-events: none;
+}
+
+:deep(.ant-thought-chain-item-header-box) {
+  pointer-events: auto;
 }
 
 :deep(.thought-chain-shell .ant-collapse-content-box) {

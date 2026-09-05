@@ -7,7 +7,13 @@ import {
   useRouter,
 } from "vue-router";
 import { message, Modal } from "ant-design-vue";
-import { api, request, type Kind, type Resource } from "../api";
+import {
+  api,
+  request,
+  type Kind,
+  type ModelConfig,
+  type Resource,
+} from "../api";
 import AgentEditor from "./AgentEditor.vue";
 import WorkflowEditor from "./WorkflowEditor.vue";
 import DebugPanel from "./DebugPanel.vue";
@@ -26,6 +32,7 @@ const rows = ref<Resource[]>([]),
   workflows = ref<Resource[]>([]),
   skills = ref<Resource[]>([]),
   agents = ref<Resource[]>([]);
+const models = ref<ModelConfig[]>([]);
 const current = ref<Resource>(),
   draft = ref<Record<string, any>>({}),
   query = ref(""),
@@ -94,10 +101,7 @@ function blank(): Record<string, any> {
     return {
       name: "未命名智能体",
       description: "",
-      model_type: "ollama",
-      model_name: "",
-      base_url: "",
-      api_key_name: "",
+      modelId: null,
       system_prompt: "",
       slot: [],
       support_think: false,
@@ -159,17 +163,20 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const [list, flowOptions, skillOptions, agentOptions] = await Promise.all([
-      api<Resource[]>("/admin/" + kind.value),
-      loadOptions("workflows"),
-      loadOptions("skills"),
-      api<Resource[]>("/admin/agents"),
-    ]);
+    const [list, flowOptions, skillOptions, agentOptions, modelOptions] =
+      await Promise.all([
+        api<Resource[]>("/admin/" + kind.value),
+        loadOptions("workflows"),
+        loadOptions("skills"),
+        api<Resource[]>("/admin/agents"),
+        api<ModelConfig[]>("/admin/models"),
+      ]);
     if (ticket !== loadId) return;
     rows.value = list;
     workflows.value = flowOptions;
     skills.value = skillOptions;
     agents.value = agentOptions;
+    models.value = modelOptions;
     if (route.params.id) {
       const value =
         route.params.id === "new"
@@ -445,162 +452,169 @@ function deleteVersion() {
         ></a-space
       >
     </header>
-    <a-alert
-      v-if="error"
-      class="page-error"
-      type="error"
-      :message="error"
-      show-icon
-      closable
-      @close="error = ''"
-    />
-    <a-spin :spinning="loading">
-      <template v-if="!current"
-        ><div class="overview-strip">
-          <div>
-            <strong>{{ rows.length }}</strong
-            ><span>{{
-              kind === "agents"
-                ? "全部智能体"
-                : kind === "skills"
-                  ? "可用 Skill"
-                  : "全部工作流"
-            }}</span>
-          </div>
-          <div>
-            <strong>{{ rows.filter((r) => r.online).length }}</strong
-            ><span>已发布 / 可用</span>
-          </div>
-          <p>修改工作流或 Skill 后，相关智能体需要重新发布。</p>
-        </div>
-        <section class="list-card">
-          <div class="list-toolbar">
-            <h3>{{ labels[kind] }}列表</h3>
-            <a-input-search
-              v-model:value="query"
-              placeholder="搜索名称或描述"
-              allow-clear
-              style="width: 280px"
-            />
-          </div>
-          <a-table
-            :columns="columns"
-            :data-source="filtered"
-            row-key="id"
-            :pagination="{ pageSize: 10, showSizeChanger: false }"
-            ><template #bodyCell="{ column, record }"
-              ><template v-if="column.key === 'name'"
-                ><a class="resource-name" @click="navigate(record.id)">{{
-                  record.name
-                }}</a>
-                <p class="resource-description">
-                  {{
-                    record.draft.description ||
-                    (kind === "workflows" ? "可视化执行流程" : "暂无描述")
-                  }}
-                </p></template
-              ><template v-else-if="column.key === 'status'"
-                ><a-tag :color="record.online ? 'green' : 'default'">{{
-                  record.draft.needsPublish
-                    ? "待重新发布"
-                    : record.online
-                      ? kind === "skills" && record.draft.builtin
-                        ? "内置"
-                        : "已发布"
-                      : record.publishedVersion
-                        ? "已下线"
-                        : "未发布"
-                }}</a-tag></template
-              ><template v-else-if="column.key === 'info'">{{
+    <div class="page-content">
+      <a-alert
+        v-if="error"
+        class="page-error"
+        type="error"
+        :message="error"
+        show-icon
+        closable
+        @close="error = ''"
+      />
+      <a-spin :spinning="loading">
+        <template v-if="!current"
+          ><div class="overview-strip">
+            <div>
+              <strong>{{ rows.length }}</strong
+              ><span>{{
                 kind === "agents"
-                  ? record.draft.model_name || "尚未配置"
+                  ? "全部智能体"
                   : kind === "skills"
-                    ? record.draft.kind
-                    : (record.draft.nodes?.length || 0) + " 个节点"
-              }}</template
-              ><template v-else-if="column.key === 'agentCount'"
-                >{{ record.agentCount ?? 0 }} 个</template
-              ><template v-else-if="column.key === 'actions'"
-                ><a-button type="link" @click="navigate(record.id)"
-                  >{{ kind === "skills" ? "查看详情" : "编辑配置" }} →</a-button
-                ><a-tooltip
-                  v-if="kind !== 'skills'"
-                  :title="deletionReason(record)"
-                  ><span
-                    ><a-button
-                      type="link"
-                      danger
-                      :disabled="busy || !!deletionReason(record)"
-                      @click="deleteResource(record)"
-                      >删除</a-button
-                    ></span
-                  ></a-tooltip
+                    ? "可用 Skill"
+                    : "全部工作流"
+              }}</span>
+            </div>
+            <div>
+              <strong>{{ rows.filter((r) => r.online).length }}</strong
+              ><span>已发布 / 可用</span>
+            </div>
+            <p>修改工作流或 Skill 后，相关智能体需要重新发布。</p>
+          </div>
+          <section class="list-card">
+            <div class="list-toolbar">
+              <h3>{{ labels[kind] }}列表</h3>
+              <a-input-search
+                v-model:value="query"
+                placeholder="搜索名称或描述"
+                allow-clear
+                style="width: 280px"
+              />
+            </div>
+            <a-table
+              :columns="columns"
+              :data-source="filtered"
+              row-key="id"
+              :pagination="{ pageSize: 10, showSizeChanger: false }"
+              ><template #bodyCell="{ column, record }"
+                ><template v-if="column.key === 'name'"
+                  ><a class="resource-name" @click="navigate(record.id)">{{
+                    record.name
+                  }}</a>
+                  <p class="resource-description">
+                    {{
+                      record.draft.description ||
+                      (kind === "workflows" ? "可视化执行流程" : "暂无描述")
+                    }}
+                  </p></template
+                ><template v-else-if="column.key === 'status'"
+                  ><a-tag :color="record.online ? 'green' : 'default'">{{
+                    record.draft.needsPublish
+                      ? "待重新发布"
+                      : record.online
+                        ? kind === "skills" && record.draft.builtin
+                          ? "内置"
+                          : "已发布"
+                        : record.publishedVersion
+                          ? "已下线"
+                          : "未发布"
+                  }}</a-tag></template
+                ><template v-else-if="column.key === 'info'">{{
+                  kind === "agents"
+                    ? models.find((model) => model.id === record.draft.modelId)
+                        ?.name || "尚未配置"
+                    : kind === "skills"
+                      ? record.draft.kind
+                      : (record.draft.nodes?.length || 0) + " 个节点"
+                }}</template
+                ><template v-else-if="column.key === 'agentCount'"
+                  >{{ record.agentCount ?? 0 }} 个</template
+                ><template v-else-if="column.key === 'actions'"
+                  ><a-button type="link" @click="navigate(record.id)"
+                    >{{
+                      kind === "skills" ? "查看详情" : "编辑配置"
+                    }}
+                    →</a-button
+                  ><a-tooltip
+                    v-if="kind !== 'skills'"
+                    :title="deletionReason(record)"
+                    ><span
+                      ><a-button
+                        type="link"
+                        danger
+                        :disabled="busy || !!deletionReason(record)"
+                        @click="deleteResource(record)"
+                        >删除</a-button
+                      ></span
+                    ></a-tooltip
+                  ></template
                 ></template
-              ></template
-            ><template #emptyText
-              ><a-empty
-                :description="
-                  query ? '没有匹配的记录' : '从创建第一条记录开始'
-                " /></template
-          ></a-table></section
-      ></template>
-      <template v-else-if="kind === 'agents'"
-        ><AgentEditor
-          v-model="draft"
-          :workflows="workflows"
-          @invalid="invalidEditor = $event"
-      /></template>
-      <template v-else-if="kind === 'workflows'">
-        <WorkflowEditor
-          :key="current.id || 'new'"
-          v-model="draft"
-          :skills="skills"
-          @invalid="invalidEditor = $event"
-      /></template>
-      <section v-else class="form-card skill-detail">
-        <div class="list-toolbar">
-          <h3>{{ current.name }}</h3>
-          <a-space
-            ><a-button
-              v-if="!current.draft.builtin"
-              danger
-              @click="deleteVersion"
-              >删除 Skill</a-button
-            ></a-space
+              ><template #emptyText
+                ><a-empty
+                  :description="
+                    query ? '没有匹配的记录' : '从创建第一条记录开始'
+                  " /></template
+            ></a-table></section
+        ></template>
+        <template v-else-if="kind === 'agents'"
+          ><AgentEditor
+            v-model="draft"
+            :workflows="workflows"
+            :models="models"
+            @invalid="invalidEditor = $event"
+        /></template>
+        <template v-else-if="kind === 'workflows'">
+          <WorkflowEditor
+            :key="current.id || 'new'"
+            v-model="draft"
+            :skills="skills"
+            @invalid="invalidEditor = $event"
+        /></template>
+        <section v-else class="form-card skill-detail">
+          <div class="list-toolbar">
+            <h3>{{ current.name }}</h3>
+            <a-space
+              ><a-button
+                v-if="!current.draft.builtin"
+                danger
+                @click="deleteVersion"
+                >删除 Skill</a-button
+              ></a-space
+            >
+          </div>
+          <a-descriptions bordered :column="2"
+            ><a-descriptions-item label="类型">{{
+              selectedSkill?.kind
+            }}</a-descriptions-item
+            ><a-descriptions-item label="来源">{{
+              selectedSkill?.builtin ? "内置（只读）" : "管理员上传"
+            }}</a-descriptions-item
+            ><a-descriptions-item label="执行入口">{{
+              selectedSkill?.entrypoint || "提示词技能"
+            }}</a-descriptions-item
+            ><a-descriptions-item label="依赖状态">{{
+              selectedSkill?.dependencyStatus
+            }}</a-descriptions-item
+            ><a-descriptions-item label="描述" :span="2">{{
+              selectedSkill?.description
+            }}</a-descriptions-item></a-descriptions
           >
-        </div>
-        <a-descriptions bordered :column="2"
-          ><a-descriptions-item label="类型">{{
-            selectedSkill?.kind
-          }}</a-descriptions-item
-          ><a-descriptions-item label="来源">{{
-            selectedSkill?.builtin ? "内置（只读）" : "管理员上传"
-          }}</a-descriptions-item
-          ><a-descriptions-item label="执行入口">{{
-            selectedSkill?.entrypoint || "提示词技能"
-          }}</a-descriptions-item
-          ><a-descriptions-item label="依赖状态">{{
-            selectedSkill?.dependencyStatus
-          }}</a-descriptions-item
-          ><a-descriptions-item label="描述" :span="2">{{
-            selectedSkill?.description
-          }}</a-descriptions-item></a-descriptions
-        >
-        <h3>技能说明</h3>
-        <pre>{{ selectedSkill?.prompt }}</pre>
-        <h3>依赖声明</h3>
-        <pre>{{
-          selectedSkill?.dependencies || "未提供 requirements.txt"
-        }}</pre>
-        <h3>引用位置</h3>
-        <ul v-if="references.length">
-          <li v-for="reference in references" :key="reference">
-            {{ reference }}
-          </li>
-        </ul>
-        <p v-else class="muted">暂无工作流引用</p>
-      </section>
-    </a-spin>
+          <h3>技能说明</h3>
+          <pre>{{ selectedSkill?.prompt }}</pre>
+          <h3>依赖声明</h3>
+          <pre>{{
+            selectedSkill?.dependencies || "未提供 requirements.txt"
+          }}</pre>
+          <h3>引用位置</h3>
+          <ul v-if="references.length">
+            <li v-for="reference in references" :key="reference">
+              {{ reference }}
+            </li>
+          </ul>
+          <p v-else class="muted">暂无工作流引用</p>
+        </section>
+      </a-spin>
+    </div>
     <a-drawer
       v-model:open="showDebug"
       title="草稿调试"
@@ -609,6 +623,7 @@ function deleteVersion() {
       ><DebugPanel
         v-if="showDebug"
         :agents="agents"
+        :models="models"
         :agent-id="kind === 'agents' ? current?.id : undefined"
         :workflow-id="kind === 'workflows' ? current?.id : undefined"
     /></a-drawer>

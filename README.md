@@ -245,7 +245,6 @@ python/skills/
 - `web-search`：联网搜索
 - `knowledge-search`：知识库检索
 - `file-reader`：附件读取
-- `image-to-document`：图片转文档
 - `artifact-generator`：生成可下载文件
 - `chart-visualization`：图表可视化
 - `sales-performance`：带角色权限校验的销售业绩查询
@@ -307,6 +306,6 @@ python main.py
 
 ## 独立管理端
 
-`admin/` 提供智能体开发、Skill 管理和可视化工作流配置，复用现有 Python 后端，默认开发端口 `5174`。仅维护最新配置，支持草稿调试、智能体发布与下线；修改工作流或 Skill 后相关智能体需重新发布，仅 `admin` 角色可访问。
+`admin/` 提供智能体开发、模型管理、Skill 管理和可视化工作流配置，复用现有 Python 后端，默认开发端口 `5174`。模型连接信息独立存放，智能体只选择模型和工作流。`agent_list` 仅作为已发布工作流智能体的用户端投影，不提供旧执行方式。仅维护最新配置，支持草稿调试、智能体发布与下线；修改模型、工作流或 Skill 后相关智能体需重新发布，仅 `admin` 角色可访问。
 
 启动、部署、Skill ZIP 格式及工作流配置参见 [管理端使用说明](docs/admin-console.md)。

@@ -37,3 +37,15 @@ class AdminSkillLease(Base):
     run_id = Column(String(64), primary_key=True)
     skill_id = Column(String(64), primary_key=True)
     skill_version = Column(Integer, primary_key=True)
+
+
+class AdminModel(Base):
+    """Reusable model connection configuration selected by agents."""
+    __tablename__ = 'admin_models'
+    id = Column(String(64), primary_key=True)
+    name = Column(String(100), nullable=False)
+    model_type = Column(String(20), nullable=False)
+    model_name = Column(String(200), nullable=False)
+    base_url = Column(String(500), nullable=True)
+    api_key_name = Column(String(100), nullable=True)
+    revision = Column(Integer, nullable=False, default=1)

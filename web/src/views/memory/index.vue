@@ -2,7 +2,6 @@
   <a-flex class="memory-page" vertical>
     <header class="page-header">
       <div>
-        <span class="page-eyebrow">PERSONAL MEMORY</span>
         <h2>个人记忆</h2>
         <p>整理重要偏好与长期信息，让每一次对话都更懂你。</p>
       </div>
@@ -273,13 +272,6 @@ onMounted(() => {
     color: var(--app-text-secondary);
     font-size: 14px;
   }
-}
-
-.page-eyebrow {
-  color: var(--app-mint);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.13em;
 }
 
 .page-actions {

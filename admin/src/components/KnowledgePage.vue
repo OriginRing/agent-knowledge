@@ -129,56 +129,60 @@ function safeUrl(value: string) {
         >
       </a-space>
     </header>
-    <a-card>
-      <a-input-search
-        v-model:value="query"
-        placeholder="输入关键词检索知识库"
-        enter-button="检索"
-        :loading="searching"
-        :disabled="clearing"
-        @search="search"
-      />
-      <a-alert
-        v-if="error"
-        type="error"
-        show-icon
-        :message="error"
-        class="result-item"
-      />
-      <a-spin :spinning="searching">
-        <div class="knowledge-results">
-          <a-empty v-if="!results.length" description="暂无检索结果" />
-          <a-card
-            v-for="(item, index) in results"
-            :key="index"
-            size="small"
-            class="result-item"
-          >
-            <template #title
-              ><a
-                :href="safeUrl(item.fileUrl)"
-                target="_blank"
-                rel="noopener noreferrer"
-                >{{ item.fileName }}</a
-              ></template
+    <div class="page-content">
+      <a-card>
+        <a-input-search
+          v-model:value="query"
+          placeholder="输入关键词检索知识库"
+          enter-button="检索"
+          :loading="searching"
+          :disabled="clearing"
+          @search="search"
+        />
+        <a-alert
+          v-if="error"
+          type="error"
+          show-icon
+          :message="error"
+          class="result-item"
+        />
+        <a-spin :spinning="searching">
+          <div class="knowledge-results">
+            <a-empty v-if="!results.length" description="暂无检索结果" />
+            <a-card
+              v-for="(item, index) in results"
+              :key="index"
+              size="small"
+              class="result-item"
             >
-            <template #extra
-              ><span v-if="item.createdAt">{{ item.createdAt }}</span></template
-            >
-            <a-tag v-if="item.sourceLabel" color="blue">{{
-              item.sourceLabel
-            }}</a-tag>
-            <p class="result-content">
-              {{
-                Array.isArray(item.fileContent)
-                  ? item.fileContent.join("\n")
-                  : item.fileContent
-              }}
-            </p>
-          </a-card>
-        </div>
-      </a-spin>
-    </a-card>
+              <template #title
+                ><a
+                  :href="safeUrl(item.fileUrl)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >{{ item.fileName }}</a
+                ></template
+              >
+              <template #extra
+                ><span v-if="item.createdAt">{{
+                  item.createdAt
+                }}</span></template
+              >
+              <a-tag v-if="item.sourceLabel" color="blue">{{
+                item.sourceLabel
+              }}</a-tag>
+              <p class="result-content">
+                {{
+                  Array.isArray(item.fileContent)
+                    ? item.fileContent.join("\n")
+                    : item.fileContent
+                }}
+              </p>
+            </a-card>
+          </div>
+        </a-spin>
+      </a-card>
+    </div>
     <a-modal
       :open="open"
       title="上传知识库"

@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from "vue";
-import type { Resource } from "../api";
+import type { ModelConfig, Resource } from "../api";
 import { readEvents } from "../sse";
 const props = defineProps<{
   agents: Resource[];
+  models: ModelConfig[];
   agentId?: string;
   workflowId?: string;
 }>();
-const selected = ref(props.agentId || ""),
+const selected = ref(""),
   text = ref(""),
   fileText = ref(""),
   events = ref<any[]>([]),
@@ -30,7 +31,8 @@ async function run() {
       signal: controller.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        agentId: selected.value,
+        agentId: props.agentId || undefined,
+        modelId: props.workflowId ? selected.value : undefined,
         workflowId: props.workflowId,
         text: text.value,
         files: fileText.value
@@ -63,13 +65,22 @@ async function run() {
     show-icon
   />
   <a-form layout="vertical" class="debug-form"
-    ><a-form-item label="提供模型配置的智能体" required
+    ><a-form-item
+      :label="props.workflowId ? '调试模型' : '调试智能体'"
+      required
       ><a-select
+        v-if="props.workflowId"
         v-model:value="selected"
-        :disabled="!!props.agentId || busy"
-        :options="
-          agents.map((a) => ({ label: a.name, value: a.id }))
-        " /></a-form-item
+        :disabled="busy"
+        placeholder="请选择模型"
+        :options="models.map((model) => ({ label: model.name, value: model.id }))"
+      />
+      <a-select
+        v-else
+        :value="props.agentId"
+        disabled
+        :options="agents.map((agent) => ({ label: agent.name, value: agent.id }))"
+      /></a-form-item
     ><a-form-item label="测试输入" required
       ><a-textarea v-model:value="text" :rows="3" /></a-form-item
     ><a-form-item label="文件 URL（每行一个，可选）"
@@ -77,7 +88,7 @@ async function run() {
     ><a-space
       ><a-button
         type="primary"
-        :disabled="!selected || !text || busy"
+        :disabled="!(props.workflowId ? selected : props.agentId) || !text || busy"
         @click="run"
         >开始调试</a-button
       ><a-button v-if="busy" @click="cancel">停止</a-button

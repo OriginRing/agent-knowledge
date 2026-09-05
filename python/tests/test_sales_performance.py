@@ -335,7 +335,6 @@ class SalesChartSkillTest(unittest.TestCase):
         )
         self.assertIn("```vis line", result["presentation"])
 
-
 class SalesAgentPipelineTest(unittest.IsolatedAsyncioTestCase):
     @staticmethod
     def _config():

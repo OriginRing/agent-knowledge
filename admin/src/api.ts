@@ -1,6 +1,15 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 export type Kind = "agents" | "workflows" | "skills";
+export interface ModelConfig {
+  id: string;
+  name: string;
+  modelType: "ollama" | "api";
+  modelName: string;
+  baseUrl: string;
+  apiKeyName: string;
+  revision: number;
+}
 export interface Resource {
   id: string;
   kind: Kind;

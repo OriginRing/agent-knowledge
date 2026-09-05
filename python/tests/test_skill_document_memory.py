@@ -60,15 +60,6 @@ class SkillServiceTest(unittest.TestCase):
         skill = SkillService.select_skill("请生成 Excel 表格", [])
         self.assertIsNone(skill)
 
-    def test_builtin_image_skill_is_selected(self):
-        skill = SkillService.select_skill(
-            "请分析这张图并生成文档",
-            ["https://example.com/demo.png?version=1"],
-        )
-        self.assertIsNotNone(skill)
-        self.assertEqual(skill.name, "image-to-document")
-        self.assertEqual(skill.artifact, "docx")
-
     def test_explicit_unknown_skill_raises(self):
         with self.assertRaisesRegex(ValueError, "技能不存在"):
             SkillService.select_skill("test", [], requested_skill="missing")

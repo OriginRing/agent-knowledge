@@ -6,6 +6,7 @@ import {
   getGeneratedFiles,
   getSkillDisplayName,
   getThoughtChainLabel,
+  getWorkflowNodeTitle,
   mergeReasoningIntoModelNode,
   openGeneratedFilePreview,
   toThoughtChainStatus,
@@ -48,6 +49,49 @@ describe("ThoughtChain 节点映射", () => {
     expect(second).toHaveLength(1);
     expect(second[0].id).toBe("model-call-1");
     expect(second[0].details.reasoning).toBe("分析完成");
+  });
+
+  it("工作流节点显示配置名称和 Skill 名称，不暴露画布 ID", () => {
+    expect(
+      getWorkflowNodeTitle({
+        ...fileNode(),
+        id: "skill-mahq77g",
+        kind: "skill",
+        name: "web-search",
+        title: "web-search",
+        summary: "web-search",
+      }),
+    ).toBe("联网搜索");
+    expect(
+      getWorkflowNodeTitle({
+        ...fileNode(),
+        id: "skill-mahq77g",
+        kind: "skill",
+        name: "web-search",
+        title: "查询公开资料",
+        summary: "查询公开资料",
+      }),
+    ).toBe("查询公开资料");
+    expect(
+      getWorkflowNodeTitle({
+        ...fileNode(),
+        id: "model-fwv4k8c",
+        kind: "model",
+        name: "model",
+        title: "model-fwv4k8c",
+        summary: "model-fwv4k8c",
+      }),
+    ).toBe("模型");
+    expect(
+      getWorkflowNodeTitle({
+        ...fileNode(),
+        id: "model-fwv4k8c",
+        kind: "model",
+        name: "model",
+        title: "总结结论",
+        summary: "总结结论",
+      }),
+    ).toBe("总结结论");
   });
 });
 

@@ -484,6 +484,7 @@ const sendMessage = async (
         done?: boolean;
         message?: AgentChat;
         sessionId?: string;
+        replaceContent?: boolean;
       }>;
 
       for (const parsed of events) {
@@ -498,10 +499,12 @@ const sendMessage = async (
         if (parsed.thinkMessage) {
           assistant.thinkMessage =
             (assistant.thinkMessage ?? "") + parsed.thinkMessage;
-          assistant.nodes = mergeReasoningIntoModelNode(
-            assistant.nodes ?? [],
-            assistant.thinkMessage,
-          );
+          if (parsed.node?.kind !== "model") {
+            assistant.nodes = mergeReasoningIntoModelNode(
+              assistant.nodes ?? [],
+              assistant.thinkMessage,
+            );
+          }
         }
         if (parsed.knowledge?.length) assistant.knowledge = parsed.knowledge;
         if (parsed.artifacts?.length) assistant.artifacts = parsed.artifacts;
@@ -509,7 +512,9 @@ const sendMessage = async (
           assistant.thinking = false;
           assistant.collapse = "";
           assistant.loading = false;
-          assistant.content += parsed.content;
+          assistant.content = parsed.replaceContent
+            ? parsed.content
+            : assistant.content + parsed.content;
         }
         if (parsed.error) {
           assistant.error = parsed.error;

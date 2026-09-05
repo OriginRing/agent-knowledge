@@ -143,7 +143,7 @@ def compare(left, operator, right):
     return left <= right
 
 
-async def execute_graph(graph, inputs, model_call, skill_call):
+async def execute_graph(graph, inputs, model_call, skill_call, model_stream=None):
     """Yield UI-compatible events. Cancellation propagates; no following node runs."""
     validate_graph(graph)
     nodes = {n['id']: n for n in graph['nodes']}
@@ -165,7 +165,27 @@ async def execute_graph(graph, inputs, model_call, skill_call):
             if kind == 'start':
                 output = inputs
             elif kind == 'model':
-                output = await model_call(data)
+                if model_stream is None:
+                    output = await model_call(data)
+                else:
+                    output = {'text': '', 'reasoning': ''}
+                    async for chunk in model_stream(data):
+                        content = chunk.get('content', '')
+                        reasoning = chunk.get('thinkMessage', '')
+                        output['text'] += content
+                        output['reasoning'] += reasoning
+                        if content or reasoning:
+                            yield {
+                                **chunk,
+                                'event': 'message',
+                                'node': {
+                                    **display,
+                                    'status': 'running',
+                                    'details': {
+                                        'reasoning': output['reasoning'],
+                                    },
+                                },
+                            }
             elif kind == 'skill':
                 arguments = dict(data.get('arguments') or {})
                 arguments.setdefault('upstream_data', last_skill_output)
@@ -184,7 +204,8 @@ async def execute_graph(graph, inputs, model_call, skill_call):
             yield {'event': 'node', 'node': {**display, 'status': 'success', 'details': {
                 'input': data, 'output': output, 'elapsedMs': round((time.monotonic() - started) * 1000)}}}
             if kind == 'end':
-                yield {'event': 'message', 'content': output['content'], 'artifacts': output['artifacts'], 'done': True}
+                yield {'event': 'message', 'content': output['content'], 'artifacts': output['artifacts'],
+                       'replaceContent': model_stream is not None, 'done': True}
                 return
             links = [e for e in graph['edges'] if e['source'] == current]
             if kind == 'condition':

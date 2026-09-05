@@ -56,18 +56,19 @@ async def stream_workflow(config, *, text, files=None, username=None, session_id
                 agent_code=config['agent_code'], query=text, files=inputs['files'], requester_username=username)
             base_messages.append({'role': 'system', 'content': as_text(result.get('context', result))})
 
-    async def model_call(data):
+    async def model_stream(data):
         from agent.agent_service import AgentService
         client = AgentService.get_model(config['agent_code'], reasoning=inputs['thinking'], config=config)
         messages = list(base_messages)
         if data.get('prompt'):
             messages.append({'role': 'system', 'content': as_text(data['prompt'])})
         messages.append({'role': 'user', 'content': as_text(data.get('input', text))})
-        content, reasoning = '', ''
         if config['model_type'] == 'ollama':
             async for chunk in client.astream(messages):
-                content += chunk.content or ''
-                reasoning += chunk.additional_kwargs.get('reasoning_content', '') or ''
+                content = chunk.content or ''
+                reasoning = chunk.additional_kwargs.get('reasoning_content', '') or ''
+                if content or reasoning:
+                    yield {'content': content, 'thinkMessage': reasoning}
         else:
             stream = await client.chat.completions.create(model=config['model_name'], messages=messages, stream=True,
                 **AgentService._get_thinking_kwargs(config.get('base_url'), config['model_name'], inputs['thinking']))
@@ -75,13 +76,12 @@ async def stream_workflow(config, *, text, files=None, username=None, session_id
                 async for chunk in stream:
                     if chunk.choices:
                         delta = chunk.choices[0].delta
-                        content += delta.content or ''
-                        reasoning += getattr(delta, 'reasoning_content', '') or ''
+                        content = delta.content or ''
+                        reasoning = getattr(delta, 'reasoning_content', '') or ''
+                        if content or reasoning:
+                            yield {'content': content, 'thinkMessage': reasoning}
             finally:
                 await stream.close()
-        if latest_presentation and latest_presentation not in content:
-            content = (latest_presentation + '\n\n' + content).strip()
-        return {'text': content, 'reasoning': reasoning}
 
     async def skill_call(data):
         definition = fixed_skills[(data['skillId'], data['skillVersion'])]
@@ -119,8 +119,14 @@ async def stream_workflow(config, *, text, files=None, username=None, session_id
                       'skills': [s.name for s in fixed_skills.values()]}
     try:
         await prepare_context()
-        async for event in execute_graph(graph, inputs, model_call, skill_call):
+        async for event in execute_graph(graph, inputs, None, skill_call, model_stream=model_stream):
             node = event.get('node', {})
+            if (node.get('kind') == 'model' and node.get('status') == 'success'
+                    and latest_presentation):
+                output = node.get('details', {}).get('output', {})
+                content = output.get('text', '')
+                if latest_presentation not in content:
+                    output['text'] = (latest_presentation + '\n\n' + content).strip()
             if node.get('kind') == 'skill' and node.get('status') == 'success':
                 output = node.get('details', {}).get('output', {})
                 # Only executed upstream Skills contribute context to subsequent models.

@@ -72,7 +72,10 @@ async def chat_generator(request: ChatRequest, username: str):
             config=config,
         ):
             chunk_data = json.loads(chunk)
-            full_content += chunk_data.get('content', '')
+            if chunk_data.get('replaceContent'):
+                full_content = chunk_data.get('content', '')
+            else:
+                full_content += chunk_data.get('content', '')
             full_think_message += chunk_data.get('thinkMessage', '')
             chunk_knowledge = chunk_data.get('knowledge', [])
             if isinstance(chunk_knowledge, list) and chunk_knowledge:

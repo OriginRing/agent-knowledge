@@ -447,8 +447,7 @@ const handleImageBeforeUpload = async (
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (e) => {
-      const base64 = e.target?.result as string;
-      uploadFiles.value[index].image = base64;
+      uploadFiles.value[index].image = e.target?.result as string;
       nextTick();
     };
   }
@@ -639,6 +638,7 @@ const handleFileBeforeUpload = async (
     flex: 1;
     align-items: flex-start;
     padding-bottom: 0;
+    min-height: 60px;
 
     .ant-input {
       border: none !important;

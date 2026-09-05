@@ -103,6 +103,28 @@ class HistoryPayloadTest(unittest.TestCase):
 
 
 class ChatSnapshotTest(unittest.IsolatedAsyncioTestCase):
+    async def test_replacement_event_reconciles_streamed_content(self):
+        from routers.agent import ChatRequest, chat_generator
+
+        async def fake_chat_stream(**_):
+            yield json.dumps({"event": "message", "content": "草稿"})
+            yield json.dumps({
+                "event": "message",
+                "content": "最终回答",
+                "replaceContent": True,
+                "done": True,
+            })
+
+        request = ChatRequest(agentCode="test", text="测试")
+        with patch(
+            "routers.agent.AgentService.chat_stream",
+            side_effect=fake_chat_stream,
+        ), patch("routers.agent.AgentService.get_agent_config", return_value={"agent_code": "test"}):
+            chunks = [item async for item in chat_generator(request, username="")]
+
+        done = json.loads(chunks[-1].removeprefix("data: ").strip())
+        self.assertEqual(done["message"]["content"], "最终回答")
+
     async def test_done_snapshot_content_does_not_include_file_metadata(self):
         from routers.agent import ChatRequest, chat_generator
 

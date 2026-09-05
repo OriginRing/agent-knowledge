@@ -43,6 +43,23 @@ class WorkflowTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([node['title'] for node in nodes], ['开始', '模型', '结束'])
         self.assertEqual([node['name'] for node in nodes], ['start', 'model', 'end'])
 
+    async def test_model_stream_yields_content_and_reasoning_before_final_snapshot(self):
+        async def model_stream(_):
+            yield {'content': '', 'thinkMessage': '先分析'}
+            yield {'content': '第一段', 'thinkMessage': ''}
+            yield {'content': '第二段', 'thinkMessage': '再确认'}
+
+        events = [event async for event in execute_graph(
+            graph(), {'text': '测试'}, None, None, model_stream=model_stream
+        )]
+
+        chunks = [event for event in events
+                  if event.get('event') == 'message' and not event.get('done')]
+        self.assertEqual([event['content'] for event in chunks], ['', '第一段', '第二段'])
+        self.assertEqual(chunks[-1]['node']['details']['reasoning'], '先分析再确认')
+        self.assertTrue(events[-1]['replaceContent'])
+        self.assertEqual(events[-1]['content'], '第一段第二段')
+
     async def test_model_skill_model_structured_handoff(self):
         flow = graph()
         flow['nodes'].insert(2, {'id': 'skill', 'type': 'skill', 'data': {'arguments': {'upstream_data': '{{nodes.model.output}}'}}})

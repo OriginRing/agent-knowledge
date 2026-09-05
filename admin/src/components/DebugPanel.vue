@@ -42,10 +42,14 @@ async function run() {
       }),
     });
     if (!response.ok) {
-      const body = await response.json();
-      throw new Error(body.message || body.detail || "调试失败");
+      const body = await response.json().catch(() => ({}));
+      error.value = body.message || body.detail || "调试失败";
+      return;
     }
-    if (!response.body) throw new Error("服务器未返回调试数据流");
+    if (!response.body) {
+      error.value = "服务器未返回调试数据流";
+      return;
+    }
     for await (const event of readEvents(response.body))
       events.value.push(event);
   } catch (e) {
@@ -65,22 +69,22 @@ async function run() {
     show-icon
   />
   <a-form layout="vertical" class="debug-form"
-    ><a-form-item
-      :label="props.workflowId ? '调试模型' : '调试智能体'"
-      required
+    ><a-form-item :label="props.workflowId ? '调试模型' : '调试智能体'" required
       ><a-select
         v-if="props.workflowId"
         v-model:value="selected"
         :disabled="busy"
         placeholder="请选择模型"
-        :options="models.map((model) => ({ label: model.name, value: model.id }))"
-      />
+        :options="
+          models.map((model) => ({ label: model.name, value: model.id }))
+        " />
       <a-select
         v-else
         :value="props.agentId"
         disabled
-        :options="agents.map((agent) => ({ label: agent.name, value: agent.id }))"
-      /></a-form-item
+        :options="
+          agents.map((agent) => ({ label: agent.name, value: agent.id }))
+        " /></a-form-item
     ><a-form-item label="测试输入" required
       ><a-textarea v-model:value="text" :rows="3" /></a-form-item
     ><a-form-item label="文件 URL（每行一个，可选）"
@@ -88,7 +92,9 @@ async function run() {
     ><a-space
       ><a-button
         type="primary"
-        :disabled="!(props.workflowId ? selected : props.agentId) || !text || busy"
+        :disabled="
+          !(props.workflowId ? selected : props.agentId) || !text || busy
+        "
         @click="run"
         >开始调试</a-button
       ><a-button v-if="busy" @click="cancel">停止</a-button

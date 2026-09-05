@@ -36,6 +36,9 @@ watch(
 const selected = computed(() =>
   nodes.value.find((n) => n.id === selectedId.value),
 );
+const referenceNodes = computed(() =>
+  nodes.value.filter((node) => node.id !== selectedId.value),
+);
 const kinds = [
   { type: "start", label: "开始" },
   { type: "model", label: "模型" },
@@ -134,8 +137,12 @@ function remove() {
           v-for="kind in kinds"
           :key="kind.type"
           #[`node-${kind.type}`]="nodeProps"
-          >
-          <FlowNode v-bind="nodeProps" :type="kind.type"/>
+        >
+          <FlowNode
+            v-bind="nodeProps"
+            :data="nodeProps.data"
+            :type="kind.type"
+          />
         </template>
         <Background :gap="20" pattern-color="#d9dde7" /><Controls />
       </VueFlow>
@@ -148,7 +155,7 @@ function remove() {
       <div v-if="!selected" class="empty-properties">
         选择画布中的节点<br />配置输入与执行行为
       </div>
-      <a-form v-else layout="vertical" :key="selected.id">
+      <a-form v-else :key="selected.id" layout="vertical">
         <a-form-item label="节点名称"
           ><a-input v-model:value="selected.data.label"
         /></a-form-item>
@@ -255,16 +262,13 @@ function remove() {
         <div class="variable-guide">
           <strong>变量引用</strong><code v-pre>{{ input.text }}</code
           ><code v-pre>{{ input.files }}</code
-          ><code
-            v-for="n in nodes.filter((n) => n.id !== selectedId)"
-            :key="n.id"
-            >{{
-              "\{\{nodes." +
-              n.id +
-              ".output" +
-              (n.type === "model" ? ".text" : "") +
-              "\}\}"
-            }}</code
+          ><code v-for="n in referenceNodes" :key="n.id">{{
+            "\{\{nodes." +
+            n.id +
+            ".output" +
+            (n.type === "model" ? ".text" : "") +
+            "\}\}"
+          }}</code
           ><small>只能引用所有执行路径上必经的上游节点。</small>
         </div>
         <a-button danger block @click="remove">删除节点</a-button>

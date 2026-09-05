@@ -4,9 +4,10 @@
 
 ## 界面预览
 
-![Agent Knowledge 登录界面](docs/images/login.jpg)
 ![Agent Knowledge 对话界面](docs/images/chat.png)
 ![Agent Knowledge 知识库界面](docs/images/knowledge.png)
+![Agent Knowledge Admin 工作流](docs/images/workflow.png)
+![Agent Knowledge Admin Skill](docs/images/Skill.png)
 
 ## 功能特性
 

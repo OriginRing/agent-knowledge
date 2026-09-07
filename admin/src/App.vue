@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { api, useSession } from "./api";
+import LoginFlowScene from "./components/LoginFlowScene.vue";
 const session = useSession();
 const route = useRoute();
 const ready = ref(false),
@@ -59,15 +60,7 @@ async function logout() {
   >
     <div v-if="!ready" class="loading"><a-spin tip="正在恢复会话" /></div>
     <div v-else-if="!session.username" class="login-shell">
-      <div class="login-intro">
-        <span class="eyebrow">AGENT STUDIO</span>
-        <h1>让每个智能体<br />都有清晰的执行路径。</h1>
-        <p>配置模型，组合技能，将想法发布为可用的智能体。</p>
-        <div class="intro-flow">
-          <span>输入</span><b>→</b><span>模型与技能</span><b>→</b
-          ><span>结果</span>
-        </div>
-      </div>
+      <LoginFlowScene />
       <a-card class="login-card"
         ><h2>登录管理端</h2>
         <p class="muted">使用现有管理员账号继续</p>

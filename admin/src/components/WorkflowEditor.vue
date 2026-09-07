@@ -36,6 +36,23 @@ watch(
 const selected = computed(() =>
   nodes.value.find((n) => n.id === selectedId.value),
 );
+const selectedSkill = computed(() =>
+  props.skills.find((skill) => skill.id === selected.value?.data.skillId),
+);
+const skillPrompt = computed({
+  get: () => {
+    if (!selected.value || selected.value.type !== "skill") return "";
+    return "prompt" in selected.value.data
+      ? selected.value.data.prompt
+      : selectedSkill.value?.draft.prompt || "";
+  },
+  set: (value: string) => {
+    if (selected.value?.type === "skill") selected.value.data.prompt = value;
+  },
+});
+const skillPromptModified = computed(
+  () => selected.value?.type === "skill" && "prompt" in selected.value.data,
+);
 const referenceNodes = computed(() =>
   nodes.value.filter((node) => node.id !== selectedId.value),
 );
@@ -103,6 +120,15 @@ function remove() {
     (e) => e.source !== selectedId.value && e.target !== selectedId.value,
   );
   selectedId.value = "";
+}
+function selectSkill(skillId: string) {
+  if (selected.value?.type !== "skill") return;
+  selected.value.data.skillId = skillId;
+  selected.value.data.skillVersion = null;
+  delete selected.value.data.prompt;
+}
+function resetSkillPrompt() {
+  if (selected.value?.type === "skill") delete selected.value.data.prompt;
 }
 </script>
 <template>
@@ -173,7 +199,7 @@ function remove() {
         <template v-if="selected.type === 'skill'"
           ><a-form-item label="Skill"
             ><a-select
-              v-model:value="selected.data.skillId"
+              :value="selected.data.skillId"
               :options="
                 props.skills.map((s) => ({
                   label: s.name,
@@ -181,6 +207,7 @@ function remove() {
                   skill: s.draft,
                 }))
               "
+              @change="selectSkill"
             >
               <template #option="option">
                 <a-popover
@@ -216,14 +243,66 @@ function remove() {
                 </a-popover>
               </template>
             </a-select></a-form-item
-          ><a-form-item label="调用参数（JSON）"
+          ><a-form-item
+            ><template #label
+              ><span class="field-label"
+                >调用参数（JSON）<a-tooltip
+                  placement="left"
+                  :trigger="['hover', 'focus']"
+                >
+                  <template #title>
+                    <div class="variable-reference-content">
+                      <strong>变量引用</strong
+                      ><code v-pre>{{ input.text }}</code
+                      ><code v-pre>{{ input.files }}</code
+                      ><code v-for="n in referenceNodes" :key="n.id">{{
+                        "\{\{nodes." +
+                        n.id +
+                        ".output" +
+                        (n.type === "model" ? ".text" : "") +
+                        "\}\}"
+                      }}</code
+                      ><small>只能引用所有执行路径上必经的上游节点。</small>
+                    </div>
+                  </template>
+                  <button
+                    class="field-help"
+                    type="button"
+                    aria-label="查看调用参数可用的变量引用"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 10.8v6M12 7.4h.01" />
+                    </svg></button></a-tooltip></span></template
             ><JsonField
               v-model:value="selected.data.arguments"
               :rows="4"
               @invalid="
                 (value) => (errors['arguments'] = value)
               " /></a-form-item
-        ></template>
+          ><a-form-item v-if="selected.data.skillId"
+            ><template #label
+              ><span class="prompt-label"
+                ><span>Skill 提示词</span
+                ><a-button
+                  type="link"
+                  size="small"
+                  aria-label="重置 Skill 提示词"
+                  :disabled="!skillPromptModified"
+                  @click="resetSkillPrompt"
+                  >重置</a-button
+                ></span
+              ></template
+            ><a-textarea
+              v-model:value="skillPrompt"
+              :rows="10"
+              placeholder="当前 Skill 未提供提示词"
+            />
+            <p class="prompt-help">
+              默认读取当前 Skill 的 SKILL.md；修改后随工作流保存并用于执行。
+            </p></a-form-item
+          ></template
+        >
         <template v-if="selected.type === 'condition'"
           ><a-form-item label="比较字段 / 变量"
             ><a-input v-model:value="selected.data.left" /></a-form-item
@@ -259,18 +338,6 @@ function remove() {
                 (value) => (errors['artifacts'] = value)
               " /></a-form-item
         ></template>
-        <div class="variable-guide">
-          <strong>变量引用</strong><code v-pre>{{ input.text }}</code
-          ><code v-pre>{{ input.files }}</code
-          ><code v-for="n in referenceNodes" :key="n.id">{{
-            "\{\{nodes." +
-            n.id +
-            ".output" +
-            (n.type === "model" ? ".text" : "") +
-            "\}\}"
-          }}</code
-          ><small>只能引用所有执行路径上必经的上游节点。</small>
-        </div>
         <a-button danger block @click="remove">删除节点</a-button>
       </a-form>
     </aside>
@@ -292,5 +359,63 @@ function remove() {
   white-space: pre-wrap;
   font: inherit;
   margin-bottom: 0;
+}
+.field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.field-help {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  padding: 4px;
+  place-items: center;
+  color: #747c90;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+}
+.field-help:hover,
+.field-help:focus-visible {
+  color: #6848ed;
+  background: #f0edff;
+}
+.field-help svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.8;
+}
+.variable-reference-content {
+  display: grid;
+  gap: 7px;
+  max-width: 300px;
+}
+.variable-reference-content code {
+  overflow-wrap: anywhere;
+  color: #d9ceff;
+}
+.variable-reference-content small {
+  color: #d8dbe4;
+  line-height: 1.6;
+}
+.prompt-label {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+}
+.prompt-label .ant-btn {
+  height: 24px;
+  padding-inline: 4px;
+}
+.prompt-help {
+  margin: 6px 0 0;
+  color: #747c90;
+  font-size: 11px;
+  line-height: 1.6;
 }
 </style>

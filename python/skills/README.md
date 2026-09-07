@@ -37,4 +37,4 @@ artifact: docx
 
 新增的管理端可展示内置 Skill，并上传完整 Skill ZIP 包。内置 Skill 只读，同名上传替换当前 Skill，相关智能体需重新发布后使用最新配置；删除前检查工作流、智能体及运行中的引用。
 
-管理端存储使用独立的 `ADMIN_SKILLS_DIR`（默认 `python/data/admin-skills/`），不改写本目录。包限制、变量传递和执行权限见 [管理端文档](../../docs/admin-console.md)。
+管理端存储使用独立的 `ADMIN_SKILLS_DIR`（默认 `python/data/admin-skills/`），不改写本目录。工作流 Skill 节点可覆盖所选版本的提示词；执行入口可通过受保护的 `skill_prompt` 参数读取最终生效的提示词，该提示词也会注入后续模型。包限制、变量传递和执行权限见 [管理端文档](../../docs/admin-console.md)。

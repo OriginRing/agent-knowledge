@@ -87,6 +87,8 @@ def validate_graph(graph, skill_resolver=None, agent_code=None):
             if data.get('operator') not in OPS:
                 raise ValueError('条件比较运算符无效')
         if kind == 'skill':
+            if 'prompt' in data and (not isinstance(data['prompt'], str) or len(data['prompt']) > 200000):
+                raise ValueError('Skill 提示词必须是字符串且不能超过 200000 个字符')
             if skill_resolver:
                 if not isinstance(data.get('skillId'), str) or type(data.get('skillVersion')) is not int or data['skillVersion'] < 1:
                     raise ValueError('Skill 节点必须选择固定版本')

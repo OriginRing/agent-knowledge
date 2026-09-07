@@ -125,6 +125,13 @@ class WorkflowTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError): validate_graph(flow)
         self.assertEqual(resolve('{{input.files}}', {'input': {'files': ['a']}}), ['a'])
 
+    def test_skill_prompt_override_must_be_text(self):
+        flow = graph()
+        flow['nodes'][1] = {'id': 'model', 'type': 'skill', 'data': {
+            'prompt': {'invalid': True}, 'arguments': {}}}
+        with self.assertRaisesRegex(ValueError, 'Skill 提示词必须是字符串'):
+            validate_graph(flow)
+
 
 class AdminStorageTest(unittest.TestCase):
     def setUp(self):
@@ -220,7 +227,8 @@ class AdminStorageTest(unittest.TestCase):
     def test_latest_skill_and_workflow_require_agent_republish(self):
         skill = admin.upload_skill(archive())
         flow = graph()
-        flow['nodes'][1] = {'id': 'model', 'type': 'skill', 'data': {'skillId': skill['id']}}
+        flow['nodes'][1] = {'id': 'model', 'type': 'skill', 'data': {
+            'skillId': skill['id'], 'prompt': '工作流覆盖提示词'}}
         flow['nodes'][-1]['data']['answer'] = '{{nodes.model.output.context}}'
         workflow = admin.save('workflows', flow)
         agent = admin.save('agents', {'name': 'latest', 'modelId': self.model['id'], 'workflowId': workflow['id']})
@@ -232,6 +240,7 @@ class AdminStorageTest(unittest.TestCase):
         agent = admin.publish('agents', agent['id'], pending['revision'])
         config = admin.published_config(agent['draft']['agentCode'])
         self.assertEqual(config['workflow']['nodes'][1]['data']['skillVersion'], again['publishedVersion'])
+        self.assertEqual(config['workflow']['nodes'][1]['data']['prompt'], '工作流覆盖提示词')
         workflow = admin.save('workflows', {**flow, 'name': 'changed'}, workflow['id'], workflow['revision'])
         self.assertTrue(admin.detail('agents', agent['id'])['draft']['needsPublish'])
         with self.factory() as session:
@@ -437,6 +446,48 @@ class RuntimeAdapterTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(handler.call_count, 2)
             self.assertTrue(any(e.get('node', {}).get('id') == 'search'
                                 and e['node']['status'] == 'success' for e in events))
+
+    async def test_workflow_skill_uses_saved_prompt_override_and_reset_default(self):
+        from types import SimpleNamespace
+        from services.workflow_runtime import stream_workflow
+        from agent.agent_service import AgentService
+        raw = io.BytesIO()
+        with zipfile.ZipFile(raw, 'w') as z:
+            z.writestr('SKILL.md', '---\nname: prompt-aware\nkind: executor\nentrypoint: handler.py:execute\n---\n原始提示词')
+            z.writestr('handler.py', 'def execute(**kwargs): return {}\n')
+        skill = admin.upload_skill(raw.getvalue())
+        flow = graph()
+        flow['nodes'].insert(1, {'id': 'prompt_skill', 'type': 'skill', 'data': {
+            'skillId': skill['id'], 'skillVersion': skill['publishedVersion'],
+            'prompt': '管理员修改后的提示词', 'arguments': {}}})
+        flow['edges'] = [{'source': a, 'target': b} for a, b in
+                         [('start', 'prompt_skill'), ('prompt_skill', 'model'), ('model', 'end')]]
+        prompts, messages = [], []
+
+        def handler(**kwargs):
+            prompts.append(kwargs['skill_prompt'])
+            return {'context': 'Skill 执行结果'}
+
+        class Model:
+            async def astream(self, value):
+                messages.append(value)
+                yield SimpleNamespace(content='回答', additional_kwargs={})
+
+        config = {'agent_code': 'test', 'workflow': flow, 'model_type': 'ollama'}
+        with patch('services.workflow_runtime.get_session', lambda _: self.factory()), \
+             patch.object(AgentService, 'get_model', return_value=Model()), \
+             patch('services.skill_service.SkillService.get_handler', return_value=handler):
+            events = [event async for event in stream_workflow(config, text='测试', memory=False)]
+            del flow['nodes'][1]['data']['prompt']
+            reset_events = [event async for event in stream_workflow(config, text='测试', memory=False)]
+
+        self.assertEqual(events[-1]['content'], '回答')
+        self.assertEqual(reset_events[-1]['content'], '回答')
+        self.assertEqual(prompts, ['管理员修改后的提示词', '原始提示词'])
+        self.assertTrue(any(item['content'] == '管理员修改后的提示词' for item in messages[0]))
+        self.assertFalse(any(item['content'] == '原始提示词' for item in messages[0]))
+        self.assertTrue(any('Skill 执行结果' in item['content'] for item in messages[0]))
+        self.assertTrue(any(item['content'] == '原始提示词' for item in messages[1]))
 
     async def test_skill_presentation_is_preserved_in_following_model_output(self):
         from types import SimpleNamespace

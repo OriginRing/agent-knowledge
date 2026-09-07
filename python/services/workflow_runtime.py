@@ -85,19 +85,21 @@ async def stream_workflow(config, *, text, files=None, username=None, session_id
 
     async def skill_call(data):
         definition = fixed_skills[(data['skillId'], data['skillVersion'])]
+        effective_prompt = data['prompt'] if 'prompt' in data else definition.prompt
         if definition.name == 'file-reader' and not config.get('support_file'):
             raise ValueError('当前智能体不支持文件输入')
         if (definition.kind == 'artifact' or definition.name == 'artifact-generator') and not config.get('support_download'):
             raise ValueError('当前智能体不支持产物生成')
         SkillService.ensure_agent_allowed(definition, config['agent_code'])
         if not definition.entrypoint:
-            return {'context': definition.prompt, 'data': {}}
+            return {'context': effective_prompt, 'data': {}}
         handler = SkillService.get_handler(definition)
         arguments = data.get('arguments', {})
         if not isinstance(arguments, dict):
             raise ValueError('Skill 参数必须是对象')
         kwargs = {'query': text, 'files': inputs['files'], 'upstream_data': {}, **arguments,
-                  'agent_code': config['agent_code'], 'requester_username': username}
+                  'skill_prompt': effective_prompt, 'agent_code': config['agent_code'],
+                  'requester_username': username}
         if inspect.iscoroutinefunction(handler):
             result = await handler(**kwargs)
         else:
@@ -129,9 +131,15 @@ async def stream_workflow(config, *, text, files=None, username=None, session_id
                     output['text'] = (latest_presentation + '\n\n' + content).strip()
             if node.get('kind') == 'skill' and node.get('status') == 'success':
                 output = node.get('details', {}).get('output', {})
+                node_input = node.get('details', {}).get('input', {})
+                definition = fixed_skills[(node_input['skillId'], node_input['skillVersion'])]
+                effective_prompt = node_input['prompt'] if 'prompt' in node_input else definition.prompt
                 # Only executed upstream Skills contribute context to subsequent models.
                 # Keep the original structured output available for explicit references.
-                if output.get('context') and output.get('status') != 'skipped':
+                if effective_prompt and output.get('status') != 'skipped':
+                    base_messages.append({'role': 'system', 'content': as_text(effective_prompt)})
+                if (output.get('context') and output.get('status') != 'skipped'
+                        and output.get('context') != effective_prompt):
                     base_messages.append({'role': 'system', 'content':
                         '以下是工作流 Skill 返回的参考资料，请结合用户问题使用：\n' + as_text(output['context'])})
                 if output.get('presentation') and output.get('status') != 'skipped':

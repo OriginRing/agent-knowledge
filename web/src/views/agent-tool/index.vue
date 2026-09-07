@@ -48,7 +48,7 @@
           @click="selectHistory(item.id as string)"
         >
           <MessageOutlined />
-          {{ item.preview }}
+          <HistoryScrollTitle :text="item.preview || '-'" />
         </a-list-item>
       </a-list>
     </div>
@@ -63,6 +63,7 @@ import { CloseOutlined, MessageOutlined } from "@ant-design/icons-vue";
 import { theme } from "ant-design-vue";
 import AgentUser from "@view/components/agent-user.vue";
 import AgentKnowledge from "@view/components/agent-knowledge.vue";
+import HistoryScrollTitle from "./components/history-scroll-title.vue";
 import { useChatStore } from "@view/stores/chat";
 import type { HistoryInterface } from "@view/interfaces/history-interface";
 import { createChatSession } from "@view/utils/random";
@@ -276,8 +277,6 @@ onMounted(() => {
   border-radius: 13px;
   color: var(--app-text-secondary);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   cursor: pointer;
   transition:
     color 180ms ease,

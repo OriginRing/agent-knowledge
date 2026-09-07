@@ -247,6 +247,7 @@ const activeAnchorKey = ref<string>("");
 const followBottom = ref(true);
 const showScrollBottom = ref(false);
 let anchorFrame = 0;
+let selectionFrame = 0;
 
 const questionMessages = computed(() =>
   answer.value.filter((item) => item.role === "user"),
@@ -280,8 +281,16 @@ const hideSelectionActions = () => {
   selectionActions.content = "";
 };
 
-const showSelectionActions = () => {
-  window.requestAnimationFrame(() => {
+const cancelSelectionActions = () => {
+  window.cancelAnimationFrame(selectionFrame);
+  selectionFrame = 0;
+  window.getSelection()?.removeAllRanges();
+  hideSelectionActions();
+};
+
+const updateSelectionActions = () => {
+  window.cancelAnimationFrame(selectionFrame);
+  selectionFrame = window.requestAnimationFrame(() => {
     const selection = window.getSelection();
     const content = selection?.toString().trim() ?? "";
     const range = selection?.rangeCount ? selection.getRangeAt(0) : undefined;
@@ -306,15 +315,17 @@ const showSelectionActions = () => {
   });
 };
 
+const showSelectionActions = () => updateSelectionActions();
+
 const quoteSelection = () => {
   if (!selectionActions.content) return;
   chatInputRef.value?.setQuote(selectionActions.content);
-  window.getSelection()?.removeAllRanges();
-  hideSelectionActions();
+  cancelSelectionActions();
 };
 
 const handleChatScroll = (event: Event) => {
   updateActiveAnchor(event);
+  cancelSelectionActions();
   const container = event.currentTarget as HTMLElement;
   const isAtBottom = isChatScrolledToBottom(container);
 
@@ -345,7 +356,10 @@ const updateActiveAnchor = (event: Event) => {
   });
 };
 
-onBeforeUnmount(() => window.cancelAnimationFrame(anchorFrame));
+onBeforeUnmount(() => {
+  window.cancelAnimationFrame(anchorFrame);
+  window.cancelAnimationFrame(selectionFrame);
+});
 
 const roleConfig = reactive({
   user: {

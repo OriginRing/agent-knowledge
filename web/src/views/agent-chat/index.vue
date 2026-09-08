@@ -33,7 +33,16 @@
           @keyup="showSelectionActions"
         >
           <template #header="{ item }">
-            <a-flex v-if="item.role === 'user'" vertical gap="8">
+            <a-flex
+              v-if="item.role === 'user'"
+              :id="
+                isFileOnlyUserMessage(item)
+                  ? `chat-message-${item.key}`
+                  : undefined
+              "
+              vertical
+              gap="8"
+            >
               <div
                 v-for="(file, index) in splitUrlToFileArr(item.files)"
                 :key="index"
@@ -58,7 +67,7 @@
           </template>
           <template #message="{ item }">
             <p
-              v-if="item.role !== 'assistant'"
+              v-if="item.role !== 'assistant' && item.content"
               :id="
                 item.role === 'user' ? `chat-message-${item.key}` : undefined
               "
@@ -97,7 +106,7 @@
                 </a-button>
               </a-flex>
               <a-flex
-                v-if="item.role !== 'system'"
+                v-if="item.role !== 'system' && !isFileOnlyUserMessage(item)"
                 class="message-actions"
                 align="center"
                 gap="small"
@@ -376,6 +385,9 @@ const roleConfig = reactive({
   },
 });
 
+const isFileOnlyUserMessage = (item: AgentChat) =>
+  item.role === "user" && !item.content.trim() && Boolean(item.files);
+
 const knowledgeLength = (list: KnowledgeDoc[] = []) => {
   const uniqueFileIds = new Set(list.map((doc) => doc.fileId));
   return uniqueFileIds.size;
@@ -438,7 +450,8 @@ const sendMessage = async (
   answer.value.push({
     key: (now + 1).toString(),
     role: "user",
-    content: input ? input : "帮我分析下文件内容",
+    content: input,
+    rootClassName: !input && fileList ? "file-only-user-message" : undefined,
     files: fileList,
   });
   answer.value.push({
@@ -467,7 +480,7 @@ const sendMessage = async (
         sessionId: sessionId.value,
         thinking: chatService.getAgentDetail.supportThink && thinking,
         agentCode: chatService.getAgentDetail.agentCode,
-        text: input ? input : "帮我分析下文件内容",
+        text: input,
         files: fileList,
       }),
       signal: answer.value[answer.value.length - 1]?.signal?.signal,
@@ -638,6 +651,10 @@ onMounted(() => {
       border-radius: 20px;
       background: transparent;
       box-shadow: none;
+    }
+
+    :deep(.file-only-user-message .ant-bubble-content) {
+      display: none;
     }
 
     :deep(.ant-bubble-end .ant-bubble-content) {

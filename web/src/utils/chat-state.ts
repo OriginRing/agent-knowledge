@@ -29,14 +29,21 @@ export const rehydrateHistoryMessages = (
         details: { files, errors: [] },
       });
     }
+    const content = record.content ?? "";
+    const files = record.files ?? "";
+    const role =
+      record.role === "assistant" || record.role === "system"
+        ? record.role
+        : "user";
     return {
       key: record.key || `history-${index}`,
-      role:
-        record.role === "assistant" || record.role === "system"
-          ? record.role
-          : "user",
-      content: record.content ?? "",
-      files: record.files ?? "",
+      role,
+      content,
+      rootClassName:
+        role === "user" && !content.trim() && files
+          ? "file-only-user-message"
+          : undefined,
+      files,
       thinkMessage: record.thinkMessage ?? "",
       nodes,
       artifacts: record.artifacts ?? [],

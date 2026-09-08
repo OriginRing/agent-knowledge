@@ -25,6 +25,7 @@ export interface AgentChat {
   key: string;
   role: "user" | "system" | "assistant";
   content: string;
+  rootClassName?: string;
   files?: string;
   question?: string;
   loading?: boolean;

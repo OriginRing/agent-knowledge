@@ -6,14 +6,24 @@ import { nextTick } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import AgentChat from "./index.vue";
+import { useChatStore } from "@view/stores/chat";
 
 vi.mock("ant-design-x-vue", () => ({
   BubbleList: {
     props: ["items"],
+    methods: { scrollTo() {} },
     template: `
       <div class="bubble-list-stub">
-        <div v-for="item in items" :key="item.key">
-          <slot name="message" :item="item" />
+        <div
+          v-for="item in items"
+          :key="item.key"
+          :class="item.rootClassName"
+        >
+          <slot name="header" :item="item" />
+          <div class="ant-bubble-content">
+            <slot name="message" :item="item" />
+          </div>
+          <slot name="footer" :item="item" />
         </div>
       </div>
     `,
@@ -30,7 +40,9 @@ vi.mock("@ant-design/icons-vue", () => ({
 vi.mock("@view/components/chat-input/index.vue", () => ({ default: {} }));
 vi.mock("@view/components/chat-thought-chain.vue", () => ({ default: {} }));
 vi.mock("@view/components/chat-message-anchors.vue", () => ({ default: {} }));
-vi.mock("@view/components/file-icon.vue", () => ({ default: {} }));
+vi.mock("@view/components/file-icon.vue", () => ({
+  default: { template: '<span class="file-icon-stub" />' },
+}));
 vi.mock("@view/utils/typewriter", () => ({
   renderMarkdown: (content: string) => content,
   renderStreamingMarkdown: (content: string) => content,
@@ -106,5 +118,31 @@ describe("AgentChat selection actions", () => {
     await nextTick();
     expect(wrapper.find(".selection-actions").exists()).toBe(false);
     expect(window.getSelection()?.rangeCount).toBe(0);
+  });
+
+  it("仅发送文件时只展示文件卡片", async () => {
+    const wrapper = mount(AgentChat, {
+      global: {
+        stubs: {
+          ChatInput: true,
+          ChatMessageAnchors: true,
+        },
+      },
+    });
+    useChatStore().setAgentHistoryDetail([
+      {
+        key: "file-only-user",
+        role: "user",
+        content: "",
+        files: "https://oss.example.com/report.pdf",
+      },
+    ]);
+
+    await nextTick();
+
+    expect(wrapper.find(".file-icon-stub").exists()).toBe(true);
+    expect(wrapper.find(".user-message").exists()).toBe(false);
+    expect(wrapper.find(".file-only-user-message").exists()).toBe(true);
+    expect(wrapper.find('[aria-label="复制消息"]').exists()).toBe(false);
   });
 });

@@ -7,14 +7,19 @@
     <a-empty v-if="!files.length" description="暂无参考资料" />
     <a-card v-for="item in files" :key="item.fileId" class="reference-card">
       <template #title>
-        <button
-          class="reference-name"
-          :title="item.fileName"
-          :disabled="loading"
+        <span class="reference-name" :title="item.fileName">{{
+          item.fileName
+        }}</span>
+      </template>
+      <template #extra>
+        <a-button
+          type="link"
+          size="small"
+          :disabled="loading || !item.fileUrl"
           @click="previewFile(item.fileName, item.fileUrl)"
         >
-          {{ item.fileName }}
-        </button>
+          查看原文
+        </a-button>
       </template>
       <div class="card-content">
         <template v-for="(content, index) in item.fileContent" :key="index">
@@ -113,21 +118,10 @@ onBeforeUnmount(cancelRequest);
 .reference-name {
   display: block;
   max-width: 100%;
-  padding: 4px 0;
-  border: 0;
-  background: transparent;
   color: var(--app-text);
-  cursor: pointer;
   font: inherit;
-  text-align: left;
   white-space: normal;
   overflow-wrap: anywhere;
-  &:hover {
-    color: var(--app-mint);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--app-mint);
-  }
 }
 .card-content {
   max-height: 150px;

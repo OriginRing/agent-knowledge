@@ -93,7 +93,7 @@
                   size="small"
                   @click="previewKnowledgeFile(item)"
                 >
-                  {{ knowledgeLength(item?.knowledge) }} 篇资料
+                  参考资料 {{ knowledgeLength(item?.knowledge) }} 篇
                 </a-button>
               </a-flex>
               <a-flex

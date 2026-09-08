@@ -37,6 +37,7 @@ async def stream_workflow(config, *, text, files=None, username=None, session_id
         active_skill_versions[key] += 1
     base_messages = []
     latest_presentation = ''
+    knowledge_items = []
     async def prepare_context():
         if config.get('system_prompt'):
             base_messages.append({'role': 'system', 'content': config['system_prompt']})
@@ -134,6 +135,12 @@ async def stream_workflow(config, *, text, files=None, username=None, session_id
                 node_input = node.get('details', {}).get('input', {})
                 definition = fixed_skills[(node_input['skillId'], node_input['skillVersion'])]
                 effective_prompt = node_input['prompt'] if 'prompt' in node_input else definition.prompt
+                if (definition.name == 'knowledge-search'
+                        and output.get('status') != 'skipped'
+                        and isinstance(output.get('items'), list)):
+                    knowledge_items.extend(
+                        item for item in output['items'] if isinstance(item, dict)
+                    )
                 # Only executed upstream Skills contribute context to subsequent models.
                 # Keep the original structured output available for explicit references.
                 if effective_prompt and output.get('status') != 'skipped':
@@ -146,6 +153,8 @@ async def stream_workflow(config, *, text, files=None, username=None, session_id
                     latest_presentation = as_text(output['presentation'])
                     base_messages.append({'role': 'system', 'content':
                         '以下是上游 Skill 生成的展示内容，回答时必须原样保留：\n' + latest_presentation})
+            if knowledge_items:
+                event['knowledge'] = list(knowledge_items)
             yield {**version_fields, **event}
     except asyncio.CancelledError:
         raise

@@ -447,6 +447,47 @@ class RuntimeAdapterTest(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(any(e.get('node', {}).get('id') == 'search'
                                 and e['node']['status'] == 'success' for e in events))
 
+    async def test_workflow_knowledge_items_are_exposed_as_answer_references(self):
+        from types import SimpleNamespace
+        from services.workflow_runtime import stream_workflow
+        from agent.agent_service import AgentService
+        raw = io.BytesIO()
+        with zipfile.ZipFile(raw, 'w') as z:
+            z.writestr('SKILL.md', '---\nname: knowledge-search\nkind: executor\nentrypoint: handler.py:execute\n---\n')
+            z.writestr('handler.py', 'def execute(**kwargs): return {}\n')
+        skill = admin.upload_skill(raw.getvalue())
+        flow = graph()
+        flow['nodes'].insert(1, {'id': 'knowledge', 'type': 'skill', 'data': {
+            'skillId': skill['id'], 'skillVersion': 1, 'arguments': {'query': '{{input.text}}'}}})
+        flow['edges'] = [{'source': source, 'target': target} for source, target in
+                         [('start', 'knowledge'), ('knowledge', 'model'), ('model', 'end')]]
+
+        class Model:
+            async def astream(self, _messages):
+                yield SimpleNamespace(content='知识库回答', additional_kwargs={})
+
+        references = [
+            {'fileId': 'doc-1', 'fileName': '资料.pdf', 'fileUrl': '/资料.pdf',
+             'fileContent': '第一段'},
+            {'fileId': 'doc-1', 'fileName': '资料.pdf', 'fileUrl': '/资料.pdf',
+             'fileContent': '第二段'},
+        ]
+        result = {'context': '知识内容', 'items': references}
+        config = {'agent_code': 'test', 'workflow': flow, 'model_type': 'ollama'}
+        with patch('services.workflow_runtime.get_session', lambda _: self.factory()), \
+             patch.object(AgentService, 'get_model', return_value=Model()), \
+             patch('services.skill_service.SkillService.get_handler',
+                   return_value=lambda **_kwargs: result):
+            events = [e async for e in stream_workflow(config, text='问题', memory=False)]
+
+        knowledge_event = next(
+            event for event in events
+            if event.get('node', {}).get('id') == 'knowledge'
+            and event['node']['status'] == 'success'
+        )
+        self.assertEqual(knowledge_event['knowledge'], references)
+        self.assertEqual(events[-1]['knowledge'], references)
+
     async def test_workflow_skill_uses_saved_prompt_override_and_reset_default(self):
         from types import SimpleNamespace
         from services.workflow_runtime import stream_workflow

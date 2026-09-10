@@ -12,11 +12,18 @@ export interface CodeDraft {
   language: string;
 }
 
+export interface AnswerDraft {
+  id: string;
+  content: string;
+}
+
 interface AgentChat {
   previewFileSource: "references" | "direct" | null;
   panelResetVersion: number;
-  panelMode: "references" | "file" | "code" | "memory";
+  panelMode: "references" | "file" | "code" | "memory" | "answer";
   codeDraft: CodeDraft | null;
+  answerDraft: AnswerDraft | null;
+  answerEditorVersion: number;
   memoryConversationId: string;
   memoryEditorVersion: number;
   memoryRefreshVersion: number;
@@ -41,6 +48,8 @@ export const useChatStore = defineStore("chatPiniaService", {
     panelResetVersion: 0,
     panelMode: "references",
     codeDraft: null,
+    answerDraft: null,
+    answerEditorVersion: 0,
     memoryConversationId: "",
     memoryEditorVersion: 0,
     memoryRefreshVersion: 0,
@@ -98,6 +107,7 @@ export const useChatStore = defineStore("chatPiniaService", {
       this.agentPreviewFiles = [];
       this.agentPreviewFile = null;
       this.codeDraft = null;
+      this.answerDraft = null;
       this.memoryConversationId = "";
       this.memoryUploadLoading = false;
       this.panelMode = "references";
@@ -129,6 +139,13 @@ export const useChatStore = defineStore("chatPiniaService", {
     openCodeEditor(draft: CodeDraft) {
       if (this.codeDraft?.id !== draft.id) this.codeDraft = { ...draft };
       this.panelMode = "code";
+      this.agentPreview = true;
+      this.agentTool = false;
+    },
+    openAnswerEditor(draft: AnswerDraft) {
+      this.answerDraft = { ...draft };
+      this.answerEditorVersion += 1;
+      this.panelMode = "answer";
       this.agentPreview = true;
       this.agentTool = false;
     },

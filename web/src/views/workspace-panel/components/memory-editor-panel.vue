@@ -15,9 +15,10 @@
       show-icon
     />
 
-    <MemoryEditor
+    <RichTextEditor
       class="memory-panel-editor"
       :disabled="chat.memoryUploadLoading"
+      placeholder="请输入希望长期保留的偏好、习惯或重要信息"
       @update:text="memoryInput = $event"
     />
 
@@ -45,7 +46,7 @@ import { computed, ref } from "vue";
 import { message } from "ant-design-vue";
 import httpClient from "@view/services/http";
 import { useChatStore } from "@view/stores/chat";
-import MemoryEditor from "@view/views/memory/components/memory-editor.vue";
+import RichTextEditor from "@view/components/rich-text-editor/index.vue";
 
 const chat = useChatStore();
 const memoryInput = ref("");

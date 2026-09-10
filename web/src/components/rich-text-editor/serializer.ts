@@ -72,7 +72,7 @@ const serializeTable = (node: JSONContent): string =>
     .filter(Boolean)
     .join("\n");
 
-export const serializeMemoryDocument = (document: JSONContent): string => {
+export const serializeRichTextDocument = (document: JSONContent): string => {
   const blocks = (document.content ?? []).map((node) => {
     if (node.type === "bulletList" || node.type === "orderedList") {
       return serializeList(node).join("\n");

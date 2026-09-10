@@ -45,6 +45,7 @@ describe("工作面板切换", () => {
       chat.setAgentPreviewFiles([{ fileId: "doc" } as KnowledgeDoc]);
       chat.setAgentPreviewFile(new File(["old"], "old.txt"));
       chat.openCodeEditor({ id: "code", code: "old", language: "js" });
+      chat.openAnswerEditor({ id: "answer", content: "old answer" });
       if (kind === "agent")
         chat.setAgentDetail({ agentCode: "b" } as AgentDetail);
       if (kind === "new") chat.setNewConversation("two");
@@ -53,6 +54,7 @@ describe("工作面板切换", () => {
       expect(chat.agentPreviewFiles).toEqual([]);
       expect(chat.agentPreviewFile).toBeNull();
       expect(chat.codeDraft).toBeNull();
+      expect(chat.answerDraft).toBeNull();
       expect(chat.panelMode).toBe("references");
     },
   );
@@ -129,5 +131,19 @@ describe("工作面板切换", () => {
     expect(chat.panelMode).toBe("references");
     expect(chat.memoryConversationId).toBe("");
     expect(chat.memoryRefreshVersion).toBe(1);
+  });
+  it("回答编辑器打开右侧面板并保存待编辑正文", () => {
+    const chat = useChatStore();
+
+    chat.openAnswerEditor({ id: "answer-1", content: "## 原回答" });
+
+    expect(chat.agentPreview).toBe(true);
+    expect(chat.agentTool).toBe(false);
+    expect(chat.panelMode).toBe("answer");
+    expect(chat.answerDraft).toEqual({
+      id: "answer-1",
+      content: "## 原回答",
+    });
+    expect(chat.answerEditorVersion).toBe(1);
   });
 });

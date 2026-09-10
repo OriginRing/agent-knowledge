@@ -5,6 +5,33 @@ import { saveAs } from "file-saver";
 
 const A4_MAX_WIDTH = 620;
 const CHART_EXPORT_ERROR_TEXT = "图表导出失败";
+const DOCX_STYLES = `
+  body { font-family: '微软雅黑', sans-serif; font-size: 14px; color: #333; }
+  h1 { color: #1a73e8; font-size: 24px; margin-bottom: 10px; text-align: center; }
+  p { line-height: 1.6; text-indent: 2em; }
+  img {
+    display: block !important;
+    max-width: 620px !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    vertical-align: middle !important;
+  }
+`;
+const DOCX_OPTIONS = {
+  orientation: "portrait" as const,
+  margins: {
+    top: 1440,
+    right: 1440,
+    bottom: 1440,
+    left: 1440,
+  },
+  font: {
+    name: "微软雅黑",
+    size: 28,
+  },
+};
 
 export interface DocxExportContent {
   html: string;
@@ -75,52 +102,19 @@ export async function prepareDocxContent(
   };
 }
 
-export async function saveDocx(
-  elementId: string,
-  fileName = Date.now().toString(),
-) {
-  const element = document.getElementById(elementId);
-  if (!element) return;
-
-  const customCss = `
-        body { font-family: '微软雅黑', sans-serif; font-size: 14px; color: #333; }
-        h1 { color: #1a73e8; font-size: 24px; margin-bottom: 10px; text-align: center; }
-        p { line-height: 1.6; text-indent: 2em; }
-        img {
-          display: block !important;  
-          max-width: 620px !important;
-          width: 100% !important;
-          height: auto !important;
-          margin: 0 auto !important;
-          padding: 0 !important;
-          vertical-align: middle !important;
-        }
-    `;
-
-  const options = {
-    orientation: "portrait",
-    margins: {
-      top: 1440,
-      right: 1440,
-      bottom: 1440,
-      left: 1440,
-    },
-    font: {
-      name: "微软雅黑",
-      size: 28,
-    },
-  };
-
+async function exportDocx(element: HTMLElement, fileName: string) {
   try {
     const exportContent = await prepareDocxContent(element);
     const fullHtml = `
           <!DOCTYPE html>
           <html>
-              <head><meta charset="UTF-8"><style>${customCss}</style></head>
+              <head><meta charset="UTF-8"><style>${DOCX_STYLES}</style></head>
               <body>${exportContent.html}</body>
           </html>`;
-    // @ts-expect-error html-docx-js-typescript 的类型定义缺少可用的默认导出签名
-    const blob: Blob = (await asBlob(fullHtml, options)) as unknown as Blob;
+    const blob: Blob = (await asBlob(
+      fullHtml,
+      DOCX_OPTIONS,
+    )) as unknown as Blob;
     saveAs(blob, fileName);
     if (exportContent.failedChartCount > 0) {
       message.warning(
@@ -131,4 +125,22 @@ export async function saveDocx(
     console.error("导出Word失败:", err);
     message.error("导出 Word 失败，请稍后重试");
   }
+}
+
+export async function saveDocx(
+  elementId: string,
+  fileName = `${Date.now()}.docx`,
+) {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+  await exportDocx(element, fileName);
+}
+
+export async function saveHtmlAsDocx(
+  html: string,
+  fileName = `${Date.now()}.docx`,
+) {
+  const element = document.createElement("div");
+  element.innerHTML = html;
+  await exportDocx(element, fileName);
 }

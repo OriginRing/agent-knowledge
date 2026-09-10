@@ -78,8 +78,9 @@
             >
               {{ item.content }}
             </p>
-            <a-typography v-else :id="`chat-message-${item.key}`">
+            <a-typography v-else>
               <div
+                :id="`chat-message-${item.key}`"
                 :class="[
                   'chat-content markdown-body assistant-message',
                   { 'is-streaming': item.complete === false && item.content },
@@ -127,6 +128,21 @@
                   @click="regenerateChat(item)"
                 >
                   <SyncOutlined />
+                </a-button>
+                <a-button
+                  v-if="
+                    item.role === 'assistant' &&
+                    item.content &&
+                    item.complete !== false
+                  "
+                  type="text"
+                  size="small"
+                  aria-label="编辑回答"
+                  :disabled="Boolean(editingAnswerKey)"
+                  :loading="editingAnswerKey === item.key"
+                  @click="editChat(item)"
+                >
+                  <FormOutlined />
                 </a-button>
                 <a-button
                   v-if="
@@ -195,6 +211,7 @@ import {
   CopyOutlined,
   DownOutlined,
   DownloadOutlined,
+  FormOutlined,
   SyncOutlined,
   RollbackOutlined,
 } from "@ant-design/icons-vue";
@@ -207,7 +224,7 @@ import {
   renderStreamingMarkdown,
 } from "@view/utils/typewriter";
 import { createChatSession } from "@view/utils/random";
-import { saveDocx } from "@view/utils/save-file";
+import { prepareDocxContent, saveDocx } from "@view/utils/save-file";
 import { copyToClipboard } from "@view/utils/copy";
 import type {
   AgentChat,
@@ -255,6 +272,7 @@ const selectionActions = reactive({
 const activeAnchorKey = ref<string>("");
 const followBottom = ref(true);
 const showScrollBottom = ref(false);
+const editingAnswerKey = ref("");
 let anchorFrame = 0;
 let selectionFrame = 0;
 
@@ -430,6 +448,24 @@ const regenerateChat = (item: AgentChat) => {
   sendMessage(input, lastUserChat?.files, item.thinking);
 };
 
+const editChat = async (item: AgentChat) => {
+  const messageRoot = document.getElementById(`chat-message-${item.key}`);
+  const contentElement = messageRoot?.matches(".chat-content")
+    ? messageRoot
+    : messageRoot?.querySelector<HTMLElement>(".chat-content");
+  if (!contentElement || editingAnswerKey.value) return;
+
+  const panelVersion = chatService.panelResetVersion;
+  editingAnswerKey.value = item.key;
+  try {
+    const { html } = await prepareDocxContent(contentElement);
+    if (chatService.panelResetVersion !== panelVersion) return;
+    chatService.openAnswerEditor({ id: item.key, content: html });
+  } finally {
+    editingAnswerKey.value = "";
+  }
+};
+
 const stopMessage = () => {
   if (!answer.value.length) return;
   answer.value[answer.value.length - 1].loading = false;
@@ -581,7 +617,7 @@ const sendMessage = async (
   }
 };
 
-const downloadChat = (index: string) => saveDocx(index);
+const downloadChat = (index: string) => saveDocx(`chat-message-${index}`);
 
 watch(
   () => chatService.getNewConversation,

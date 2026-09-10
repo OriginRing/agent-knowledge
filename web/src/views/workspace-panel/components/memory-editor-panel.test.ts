@@ -36,7 +36,7 @@ const mountPanel = (conversationId = "") => {
       stubs: {
         "a-alert": true,
         "a-button": true,
-        MemoryEditor: true,
+        RichTextEditor: true,
       },
     },
   });

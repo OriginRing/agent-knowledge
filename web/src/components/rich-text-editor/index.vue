@@ -1,9 +1,9 @@
 <template>
   <div
-    class="memory-editor"
+    class="rich-text-editor"
     :class="{ 'is-disabled': disabled, 'is-fullscreen': isFullscreen }"
   >
-    <div class="editor-toolbar" role="toolbar" aria-label="记忆编辑工具栏">
+    <div class="editor-toolbar" role="toolbar" aria-label="富文本编辑工具栏">
       <div class="toolbar-group" role="group" aria-label="文本结构">
         <a-dropdown :trigger="['click']" placement="bottomLeft">
           <a-button
@@ -16,7 +16,7 @@
             <DownOutlined />
           </a-button>
           <template #overlay>
-            <a-menu class="memory-format-menu">
+            <a-menu class="rich-text-format-menu">
               <a-menu-item @click="setHeadingLevel(0)">正文</a-menu-item>
               <a-menu-item
                 v-for="level in headingLevels"
@@ -108,7 +108,7 @@
             </a-button>
           </a-tooltip>
           <template #overlay>
-            <a-menu class="memory-color-menu">
+            <a-menu class="rich-text-color-menu">
               <a-menu-item
                 key="default-color"
                 class="color-reset-item"
@@ -149,7 +149,7 @@
             </a-button>
           </a-tooltip>
           <template #overlay>
-            <a-menu class="memory-color-menu">
+            <a-menu class="rich-text-color-menu">
               <a-menu-item
                 key="default-highlight"
                 class="color-reset-item"
@@ -187,7 +187,7 @@
             <DownOutlined />
           </a-button>
           <template #overlay>
-            <a-menu class="memory-format-menu">
+            <a-menu class="rich-text-format-menu">
               <a-menu-item
                 v-for="size in fontSizes"
                 :key="size.value || 'default-size'"
@@ -210,7 +210,7 @@
             <DownOutlined />
           </a-button>
           <template #overlay>
-            <a-menu class="memory-format-menu">
+            <a-menu class="rich-text-format-menu">
               <a-menu-item
                 v-for="family in fontFamilies"
                 :key="family.value || 'default-font'"
@@ -234,7 +234,7 @@
             <DownOutlined />
           </a-button>
           <template #overlay>
-            <a-menu class="memory-format-menu">
+            <a-menu class="rich-text-format-menu">
               <a-menu-item
                 v-for="height in lineHeights"
                 :key="height.value || 'default-line-height'"
@@ -336,9 +336,9 @@
           </a-tooltip>
           <template #content>
             <div class="link-editor" @keydown.esc="linkPopoverOpen = false">
-              <label for="memory-editor-link">链接地址</label>
+              <label for="rich-text-editor-link">链接地址</label>
               <a-input
-                id="memory-editor-link"
+                id="rich-text-editor-link"
                 v-model:value="linkUrl"
                 placeholder="https://example.com"
                 @press-enter="applyLink"
@@ -372,7 +372,7 @@
             </a-button>
           </a-tooltip>
           <template #overlay>
-            <a-menu class="memory-format-menu">
+            <a-menu class="rich-text-format-menu">
               <a-menu-item @click="setTextAlign('left')">左对齐</a-menu-item>
               <a-menu-item @click="setTextAlign('center')">居中</a-menu-item>
               <a-menu-item @click="setTextAlign('right')">右对齐</a-menu-item>
@@ -580,21 +580,26 @@ import {
   UnderlineOutlined,
   UnorderedListOutlined,
 } from "@ant-design/icons-vue";
-import { serializeMemoryDocument } from "./memory-editor-serializer";
+import { serializeRichTextDocument } from "./serializer";
 import {
   createTextDocument,
-  type MemoryEditorContent,
-  type MemoryEditorInputFormat,
-} from "./memory-editor-content";
+  type RichTextEditorContent,
+  type RichTextEditorInputFormat,
+} from "./content";
+import { RichTextImage } from "./image-extension";
 
 const props = withDefaults(
   defineProps<{
     disabled?: boolean;
+    initialContent?: string;
+    initialFormat?: RichTextEditorInputFormat;
     placeholder?: string;
   }>(),
   {
     disabled: false,
-    placeholder: "请输入希望长期保留的偏好、习惯或重要信息",
+    initialContent: "",
+    initialFormat: "html",
+    placeholder: "请输入内容",
   },
 );
 
@@ -687,11 +692,11 @@ const headingLevels: HeadingLevel[] = [1, 2, 3, 4, 5, 6];
 
 const readContent = (
   currentEditor: ContentReader | null | undefined,
-): MemoryEditorContent => {
+): RichTextEditorContent => {
   if (!currentEditor) return { html: "", text: "" };
   return {
     html: currentEditor.getHTML(),
-    text: serializeMemoryDocument(currentEditor.getJSON()),
+    text: serializeRichTextDocument(currentEditor.getJSON()),
   };
 };
 
@@ -702,7 +707,17 @@ const emitContent = (currentEditor: ContentReader) => {
   emit("update:text", text);
 };
 
+const normalizeContent = (
+  content: string,
+  format: RichTextEditorInputFormat,
+): string | JSONContent => {
+  if (format === "text") return createTextDocument(content);
+  if (format === "markdown") return markdown.render(content);
+  return content;
+};
+
 const editor = useEditor({
+  content: normalizeContent(props.initialContent, props.initialFormat),
   extensions: [
     StarterKit.configure({
       codeBlock: false,
@@ -727,14 +742,15 @@ const editor = useEditor({
         resizable: true,
       },
     }),
+    RichTextImage,
     Placeholder.configure({
       placeholder: props.placeholder,
     }),
   ],
   editorProps: {
     attributes: {
-      "aria-label": "记忆内容",
-      class: "memory-editor-surface",
+      "aria-label": "富文本内容",
+      class: "rich-text-editor-surface",
     },
   },
   onCreate: ({ editor: currentEditor }) => {
@@ -748,21 +764,14 @@ const editor = useEditor({
 
 const setContent = (
   content: string,
-  format: MemoryEditorInputFormat = "html",
+  format: RichTextEditorInputFormat = "html",
 ): boolean => {
   if (!editor.value) return false;
-
-  if (format === "text") {
-    editor.value.commands.setContent(createTextDocument(content));
-  } else if (format === "markdown") {
-    editor.value.commands.setContent(markdown.render(content));
-  } else {
-    editor.value.commands.setContent(content);
-  }
+  editor.value.commands.setContent(normalizeContent(content, format));
   return true;
 };
 
-const getContent = (): MemoryEditorContent => readContent(editor.value);
+const getContent = (): RichTextEditorContent => readContent(editor.value);
 const getHTML = (): string => getContent().html;
 const getText = (): string => getContent().text;
 
@@ -931,7 +940,7 @@ onBeforeUnmount(() =>
 </script>
 
 <style scoped lang="less">
-.memory-editor {
+.rich-text-editor {
   display: flex;
   width: 100%;
   min-width: 0;
@@ -1040,7 +1049,7 @@ onBeforeUnmount(() =>
   line-height: 1;
 }
 
-.memory-color-menu {
+.rich-text-color-menu {
   display: grid;
   grid-template-columns: repeat(6, 28px);
   gap: 8px;
@@ -1121,7 +1130,7 @@ onBeforeUnmount(() =>
   flex: 1;
   overflow: auto;
 
-  :deep(.memory-editor-surface) {
+  :deep(.rich-text-editor-surface) {
     min-height: 320px;
     padding: 20px 22px 64px;
     color: var(--app-text);
@@ -1294,6 +1303,14 @@ onBeforeUnmount(() =>
       pointer-events: none;
     }
   }
+
+  :deep(.rich-text-editor-surface img) {
+    display: block;
+    width: 100%;
+    max-width: 620px;
+    height: auto;
+    margin: 16px auto;
+  }
 }
 
 .editor-meta {
@@ -1305,13 +1322,13 @@ onBeforeUnmount(() =>
 }
 
 @media (max-width: 768px) {
-  .memory-editor.is-fullscreen {
+  .rich-text-editor.is-fullscreen {
     inset: 0;
     border: 0;
     border-radius: 0;
   }
 
-  .editor-content :deep(.memory-editor-surface) {
+  .editor-content :deep(.rich-text-editor-surface) {
     min-height: 260px;
     padding: 16px 16px 56px;
   }

@@ -1,8 +1,8 @@
 import type { JSONContent } from "@tiptap/vue-3";
 
-export type MemoryEditorInputFormat = "html" | "markdown" | "text";
+export type RichTextEditorInputFormat = "html" | "markdown" | "text";
 
-export interface MemoryEditorContent {
+export interface RichTextEditorContent {
   html: string;
   text: string;
 }

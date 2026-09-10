@@ -25,6 +25,10 @@
         v-else-if="chat.panelMode === 'memory'"
         :key="chat.memoryEditorVersion"
       />
+      <AnswerEditorPanel
+        v-else-if="chat.panelMode === 'answer' && chat.answerDraft"
+        :key="chat.answerEditorVersion"
+      />
       <FilePreview
         v-else-if="chat.panelMode === 'file' && chat.agentPreviewFile"
         :file="chat.agentPreviewFile"
@@ -46,9 +50,13 @@ const CodeEditor = defineAsyncComponent(
 const MemoryEditorPanel = defineAsyncComponent(
   () => import("./components/memory-editor-panel.vue"),
 );
+const AnswerEditorPanel = defineAsyncComponent(
+  () => import("./components/answer-editor-panel.vue"),
+);
 const chat = useChatStore();
 const closeLabel = computed(() => {
   if (chat.panelMode === "memory") return "关闭记忆编辑器";
+  if (chat.panelMode === "answer") return "关闭回答编辑器";
   return chat.canReturnToReferences ? "关闭文件，返回参考资料" : "关闭工作面板";
 });
 </script>

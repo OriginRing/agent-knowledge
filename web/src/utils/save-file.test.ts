@@ -6,7 +6,7 @@ import { saveAs } from "file-saver";
 import { asBlob } from "html-docx-js-typescript";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { prepareDocxContent, saveDocx } from "./save-file";
+import { prepareDocxContent, saveDocx, saveHtmlAsDocx } from "./save-file";
 
 vi.mock("@zumer/snapdom", () => ({
   snapdom: vi.fn(),
@@ -141,6 +141,15 @@ describe("Word 下载", () => {
     expect(mockedSaveAs).toHaveBeenCalledOnce();
     expect(mockedWarning).not.toHaveBeenCalled();
     expect(source.querySelector("img")?.style.width).toBe("40px");
+  });
+
+  it("可将编辑器 HTML 直接导出为 Word", async () => {
+    await saveHtmlAsDocx("<h2>编辑后的回答</h2><p>正文内容</p>", "回答.docx");
+
+    const exportedHtml = String(mockedAsBlob.mock.calls[0][0]);
+    expect(exportedHtml).toContain("编辑后的回答");
+    expect(exportedHtml).toContain("正文内容");
+    expect(mockedSaveAs).toHaveBeenCalledWith(expect.any(Blob), "回答.docx");
   });
 
   it("Word 生成失败时提示错误且不触发下载", async () => {

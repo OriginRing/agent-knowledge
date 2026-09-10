@@ -8,6 +8,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AgentChat from "./index.vue";
 import { useChatStore } from "@view/stores/chat";
 
+const fileMocks = vi.hoisted(() => ({
+  prepareDocxContent: vi.fn(),
+  saveDocx: vi.fn(),
+}));
+
 vi.mock("ant-design-x-vue", () => ({
   BubbleList: {
     props: ["items"],
@@ -34,6 +39,7 @@ vi.mock("@ant-design/icons-vue", () => ({
   CopyOutlined: {},
   DownOutlined: {},
   DownloadOutlined: {},
+  FormOutlined: {},
   RollbackOutlined: {},
   SyncOutlined: {},
 }));
@@ -47,13 +53,19 @@ vi.mock("@view/utils/typewriter", () => ({
   renderMarkdown: (content: string) => content,
   renderStreamingMarkdown: (content: string) => content,
 }));
+vi.mock("@view/utils/save-file", () => fileMocks);
 
 describe("AgentChat selection actions", () => {
   let nextFrameId: number;
   let frameCallbacks: Map<number, FrameRequestCallback>;
 
   beforeEach(() => {
+    document.body.innerHTML = "";
     setActivePinia(createPinia());
+    fileMocks.prepareDocxContent.mockResolvedValue({
+      html: '<h2>可编辑回答</h2><img src="data:image/png;base64,chart" alt="GPT-Vis 图表">',
+      failedChartCount: 0,
+    });
     nextFrameId = 0;
     frameCallbacks = new Map();
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
@@ -144,5 +156,40 @@ describe("AgentChat selection actions", () => {
     expect(wrapper.find(".user-message").exists()).toBe(false);
     expect(wrapper.find(".file-only-user-message").exists()).toBe(true);
     expect(wrapper.find('[aria-label="复制消息"]').exists()).toBe(false);
+  });
+
+  it("点击已完成回答后将渲染 DOM 转为含图 HTML 再打开编辑器", async () => {
+    const wrapper = mount(AgentChat, {
+      attachTo: document.body,
+      global: {
+        stubs: {
+          ChatInput: true,
+          ChatMessageAnchors: true,
+        },
+      },
+    });
+    useChatStore().setAgentHistoryDetail([
+      {
+        key: "assistant-1",
+        role: "assistant",
+        content: "## 可编辑回答",
+        complete: true,
+      },
+    ]);
+    await nextTick();
+
+    await wrapper.get('[aria-label="编辑回答"]').trigger("click");
+
+    expect(fileMocks.prepareDocxContent).toHaveBeenCalledWith(
+      wrapper.get(".assistant-message").element,
+    );
+
+    expect(useChatStore().panelMode).toBe("answer");
+    expect(useChatStore().answerDraft).toEqual({
+      id: "assistant-1",
+      content:
+        '<h2>可编辑回答</h2><img src="data:image/png;base64,chart" alt="GPT-Vis 图表">',
+    });
+    wrapper.unmount();
   });
 });

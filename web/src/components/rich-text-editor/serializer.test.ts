@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { serializeMemoryDocument } from "./memory-editor-serializer";
+import { serializeRichTextDocument } from "./serializer";
 
-describe("serializeMemoryDocument", () => {
+describe("serializeRichTextDocument", () => {
   it("保留段落和硬换行并移除空白块", () => {
     expect(
-      serializeMemoryDocument({
+      serializeRichTextDocument({
         type: "doc",
         content: [
           {
@@ -24,7 +24,7 @@ describe("serializeMemoryDocument", () => {
 
   it("将项目列表和编号列表转换为带前缀的纯文本", () => {
     expect(
-      serializeMemoryDocument({
+      serializeRichTextDocument({
         type: "doc",
         content: [
           {
@@ -72,7 +72,7 @@ describe("serializeMemoryDocument", () => {
 
   it("为嵌套列表保留层级缩进", () => {
     expect(
-      serializeMemoryDocument({
+      serializeRichTextDocument({
         type: "doc",
         content: [
           {
@@ -110,7 +110,7 @@ describe("serializeMemoryDocument", () => {
 
   it("忽略文字样式并保留引用内的段落换行", () => {
     expect(
-      serializeMemoryDocument({
+      serializeRichTextDocument({
         type: "doc",
         content: [
           {
@@ -140,7 +140,7 @@ describe("serializeMemoryDocument", () => {
 
   it("将表格转换为按行换行、单元格分隔的纯文本", () => {
     expect(
-      serializeMemoryDocument({
+      serializeRichTextDocument({
         type: "doc",
         content: [
           {
@@ -205,7 +205,7 @@ describe("serializeMemoryDocument", () => {
 
   it("空表格不生成分隔符文本", () => {
     expect(
-      serializeMemoryDocument({
+      serializeRichTextDocument({
         type: "doc",
         content: [
           {
@@ -246,7 +246,7 @@ describe("serializeMemoryDocument", () => {
 
   it("将任务清单转换为带勾选状态的纯文本", () => {
     expect(
-      serializeMemoryDocument({
+      serializeRichTextDocument({
         type: "doc",
         content: [
           {
@@ -296,7 +296,7 @@ describe("serializeMemoryDocument", () => {
 
   it("空任务清单不生成占位文本", () => {
     expect(
-      serializeMemoryDocument({
+      serializeRichTextDocument({
         type: "doc",
         content: [
           {

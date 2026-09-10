@@ -5,19 +5,19 @@ import { mount } from "@vue/test-utils";
 import { defineComponent, h, nextTick } from "vue";
 import { describe, expect, it, vi } from "vitest";
 import type { Editor } from "@tiptap/vue-3";
-import MemoryEditor from "./memory-editor.vue";
+import RichTextEditor from "./index.vue";
 import type {
-  MemoryEditorContent,
-  MemoryEditorInputFormat,
-} from "./memory-editor-content";
+  RichTextEditorContent,
+  RichTextEditorInputFormat,
+} from "./content";
 
-type MemoryEditorVm = {
+type RichTextEditorVm = {
   clearContent: () => void;
   editor: Editor;
-  getContent: () => MemoryEditorContent;
+  getContent: () => RichTextEditorContent;
   getHTML: () => string;
   getText: () => string;
-  setContent: (content: string, format?: MemoryEditorInputFormat) => boolean;
+  setContent: (content: string, format?: RichTextEditorInputFormat) => boolean;
 };
 
 const DefaultSlotStub = defineComponent({
@@ -51,8 +51,9 @@ const MenuItemStub = defineComponent({
       h("button", { class: "menu-item-stub" }, slots.default?.()),
 });
 
-const mountEditor = () =>
-  mount(MemoryEditor, {
+const mountEditor = (props: Record<string, unknown> = {}) =>
+  mount(RichTextEditor, {
+    props,
     global: {
       stubs: {
         "a-button": ButtonStub,
@@ -93,10 +94,36 @@ const mountEditor = () =>
     },
   });
 
-describe("MemoryEditor", () => {
+describe("RichTextEditor", () => {
+  it("可用 Markdown 初始化公共编辑器内容", async () => {
+    const wrapper = mountEditor({
+      initialContent: "## 回答标题\n\n回答正文",
+      initialFormat: "markdown",
+    });
+    await nextTick();
+
+    const vm = wrapper.vm as unknown as RichTextEditorVm;
+    expect(vm.getHTML()).toContain("<h2>回答标题</h2>");
+    expect(vm.getText()).toBe("回答标题\n\n回答正文");
+  });
+
+  it("可接收并保留 HTML 图片节点", async () => {
+    const wrapper = mountEditor({
+      initialContent:
+        '<p>图表</p><img src="data:image/png;base64,chart" alt="GPT-Vis 图表" width="620">',
+      initialFormat: "html",
+    });
+    await nextTick();
+
+    const vm = wrapper.vm as unknown as RichTextEditorVm;
+    expect(vm.getHTML()).toContain('src="data:image/png;base64,chart"');
+    expect(vm.getHTML()).toContain('alt="GPT-Vis 图表"');
+    expect(vm.getHTML()).toContain('width="620"');
+  });
+
   it("同步纯文本、清除列表格式并响应禁用状态", async () => {
     const wrapper = mountEditor();
-    const editor = (wrapper.vm as unknown as MemoryEditorVm).editor;
+    const editor = (wrapper.vm as unknown as RichTextEditorVm).editor;
 
     editor.commands.setContent({
       type: "doc",
@@ -132,7 +159,7 @@ describe("MemoryEditor", () => {
 
   it("卸载组件时销毁编辑器", () => {
     const wrapper = mountEditor();
-    const editor = (wrapper.vm as unknown as MemoryEditorVm).editor;
+    const editor = (wrapper.vm as unknown as RichTextEditorVm).editor;
     const destroy = vi.spyOn(editor, "destroy");
 
     wrapper.unmount();
@@ -142,7 +169,7 @@ describe("MemoryEditor", () => {
 
   it("提供标题、文字样式、引用和代码工具", async () => {
     const wrapper = mountEditor();
-    const editor = (wrapper.vm as unknown as MemoryEditorVm).editor;
+    const editor = (wrapper.vm as unknown as RichTextEditorVm).editor;
 
     for (const label of [
       "选择标题级别",
@@ -189,11 +216,11 @@ describe("MemoryEditor", () => {
 
   it("使用不显示颜色名称的四行色板设置文字颜色和高亮", async () => {
     const wrapper = mountEditor();
-    const editor = (wrapper.vm as unknown as MemoryEditorVm).editor;
+    const editor = (wrapper.vm as unknown as RichTextEditorVm).editor;
     const textRed = wrapper.get('[aria-label="文字颜色：红色"]');
     const highlightBlue = wrapper.get('[aria-label="高亮颜色：浅蓝色"]');
 
-    expect(wrapper.findAll(".memory-color-menu")).toHaveLength(2);
+    expect(wrapper.findAll(".rich-text-color-menu")).toHaveLength(2);
     expect(wrapper.findAll(".color-palette-item")).toHaveLength(48);
     expect(textRed.text()).toBe("");
     expect(highlightBlue.text()).toBe("");
@@ -206,7 +233,7 @@ describe("MemoryEditor", () => {
 
   it("应用下划线、链接、颜色、字号、字体、行高和对齐并保留 HTML", async () => {
     const wrapper = mountEditor();
-    const vm = wrapper.vm as unknown as MemoryEditorVm;
+    const vm = wrapper.vm as unknown as RichTextEditorVm;
     const editor = vm.editor;
 
     editor.commands.setContent("偏好中文");
@@ -248,7 +275,7 @@ describe("MemoryEditor", () => {
 
   it("通过公开方法赋值 HTML 并同时输出 HTML 和纯文本", async () => {
     const wrapper = mountEditor();
-    const vm = wrapper.vm as unknown as MemoryEditorVm;
+    const vm = wrapper.vm as unknown as RichTextEditorVm;
 
     expect(
       vm.setContent(
@@ -276,7 +303,7 @@ describe("MemoryEditor", () => {
 
   it("支持 Markdown 和安全的纯文本赋值", async () => {
     const wrapper = mountEditor();
-    const vm = wrapper.vm as unknown as MemoryEditorVm;
+    const vm = wrapper.vm as unknown as RichTextEditorVm;
 
     vm.setContent("# 个人偏好\n\n使用 **中文** 回答", "markdown");
     await nextTick();
@@ -299,7 +326,7 @@ describe("MemoryEditor", () => {
 
   it("支持表格工具并以 HTML 和可读纯文本输出表格", async () => {
     const wrapper = mountEditor();
-    const vm = wrapper.vm as unknown as MemoryEditorVm;
+    const vm = wrapper.vm as unknown as RichTextEditorVm;
 
     expect(wrapper.find('[aria-label="表格操作"]').exists()).toBe(true);
     expect(

@@ -110,4 +110,24 @@ describe("工作面板切换", () => {
     chat.closeWorkspacePanel();
     expect(chat.agentPreview).toBe(false);
   });
+  it("记忆编辑器通过共享右侧面板打开、锁定上传并发布刷新信号", () => {
+    const chat = useChatStore();
+
+    chat.openMemoryEditor("conversation-1");
+    expect(chat.agentPreview).toBe(true);
+    expect(chat.agentTool).toBe(false);
+    expect(chat.panelMode).toBe("memory");
+    expect(chat.memoryConversationId).toBe("conversation-1");
+
+    chat.setMemoryUploadLoading(true);
+    chat.closeWorkspacePanel();
+    expect(chat.agentPreview).toBe(true);
+
+    chat.setMemoryUploadLoading(false);
+    chat.finishMemoryEditor();
+    expect(chat.agentPreview).toBe(false);
+    expect(chat.panelMode).toBe("references");
+    expect(chat.memoryConversationId).toBe("");
+    expect(chat.memoryRefreshVersion).toBe(1);
+  });
 });

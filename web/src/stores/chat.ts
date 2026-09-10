@@ -15,8 +15,12 @@ export interface CodeDraft {
 interface AgentChat {
   previewFileSource: "references" | "direct" | null;
   panelResetVersion: number;
-  panelMode: "references" | "file" | "code";
+  panelMode: "references" | "file" | "code" | "memory";
   codeDraft: CodeDraft | null;
+  memoryConversationId: string;
+  memoryEditorVersion: number;
+  memoryRefreshVersion: number;
+  memoryUploadLoading: boolean;
   tokenStatus: boolean;
   userDetail: UserInterface;
   agentList: AgentDetail[];
@@ -37,6 +41,10 @@ export const useChatStore = defineStore("chatPiniaService", {
     panelResetVersion: 0,
     panelMode: "references",
     codeDraft: null,
+    memoryConversationId: "",
+    memoryEditorVersion: 0,
+    memoryRefreshVersion: 0,
+    memoryUploadLoading: false,
     tokenStatus: true,
     userDetail: {} as UserInterface,
     agentList: [],
@@ -67,13 +75,19 @@ export const useChatStore = defineStore("chatPiniaService", {
     getHistoryRefreshVersion: (state: AgentChat) => state.historyRefreshVersion,
     getActiveHistorySessionId: (state: AgentChat) =>
       state.activeHistorySessionId,
+    getMemoryRefreshVersion: (state: AgentChat) => state.memoryRefreshVersion,
   },
 
   actions: {
     closeWorkspacePanel() {
+      if (this.panelMode === "memory" && this.memoryUploadLoading) return;
       if (this.canReturnToReferences) {
         this.setAgentPreviewFile(null);
         return;
+      }
+      if (this.panelMode === "memory") {
+        this.memoryConversationId = "";
+        this.panelMode = "references";
       }
       this.setAgentPreview(false);
     },
@@ -84,6 +98,8 @@ export const useChatStore = defineStore("chatPiniaService", {
       this.agentPreviewFiles = [];
       this.agentPreviewFile = null;
       this.codeDraft = null;
+      this.memoryConversationId = "";
+      this.memoryUploadLoading = false;
       this.panelMode = "references";
     },
     setTokenStatus(status: boolean) {
@@ -115,6 +131,24 @@ export const useChatStore = defineStore("chatPiniaService", {
       this.panelMode = "code";
       this.agentPreview = true;
       this.agentTool = false;
+    },
+    openMemoryEditor(conversationId = "") {
+      this.memoryConversationId = conversationId;
+      this.memoryEditorVersion += 1;
+      this.memoryUploadLoading = false;
+      this.panelMode = "memory";
+      this.agentPreview = true;
+      this.agentTool = false;
+    },
+    finishMemoryEditor() {
+      this.memoryRefreshVersion += 1;
+      this.memoryConversationId = "";
+      this.memoryUploadLoading = false;
+      this.panelMode = "references";
+      this.agentPreview = false;
+    },
+    setMemoryUploadLoading(loading: boolean) {
+      this.memoryUploadLoading = loading;
     },
     setAgentPreview(preview: boolean) {
       this.agentPreview = preview;

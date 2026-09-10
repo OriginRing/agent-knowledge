@@ -363,4 +363,18 @@ onMounted(() => {
     }
   }
 }
+
+@media (max-width: 768px) {
+  .g-split .horizontal {
+    .right-panel {
+      z-index: 92;
+      left: 0 !important;
+      background: var(--app-surface);
+    }
+
+    .horizontal-trigger-panel {
+      display: none;
+    }
+  }
+}
 </style>

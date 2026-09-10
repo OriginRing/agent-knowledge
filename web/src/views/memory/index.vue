@@ -76,36 +76,9 @@
       <a-empty v-else :image="simpleImage" description="暂无数据" />
     </div>
   </a-flex>
-  <a-modal v-model:open="open" title="添加记忆" width="600px" centered>
-    <a-alert
-      v-if="conversation_id"
-      message="对当前会话消息的反馈，基于用户的反馈更正记忆"
-      type="warning"
-      show-icon
-    />
-    <a-textarea
-      v-model:value="memoryInput"
-      show-count
-      :rows="4"
-      class="memory-textarea"
-      placeholder="请输入记忆"
-    />
-
-    <template #footer>
-      <a-button key="back" @click="handleCancel">取消</a-button>
-      <a-button
-        key="submit"
-        type="primary"
-        :loading="uploadLoading"
-        @click="addMemory"
-      >
-        上传
-      </a-button>
-    </template>
-  </a-modal>
 </template>
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { MemoryDetail } from "@view/interfaces/agent-interface";
 import {
   ClearOutlined,
@@ -122,23 +95,9 @@ const value = ref<string>("");
 const memoryList = ref<MemoryDetail[]>([]);
 const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE;
 const loading = ref(false);
-const uploadLoading = ref(false);
-const open = ref(false);
-const memoryInput = ref("");
-const conversation_id = ref("");
 
 const openMemory = (cid?: string) => {
-  if (cid) {
-    conversation_id.value = cid;
-  } else {
-    conversation_id.value = "";
-  }
-  open.value = true;
-};
-
-const handleCancel = () => {
-  open.value = false;
-  memoryInput.value = "";
+  chatService.openMemoryEditor(cid);
 };
 
 const onSearch = async (searchValue: string) => {
@@ -180,52 +139,6 @@ const getMemoryList = async () => {
   }
 };
 
-const addMemory = async () => {
-  uploadLoading.value = true;
-  if (conversation_id.value) {
-    await updateMemory();
-    return;
-  }
-  try {
-    const res = await httpClient.post("/auth/memory/add", {
-      conversation_id: chatService.getUserDetail.username,
-      messages: [
-        {
-          role: "user",
-          content: memoryInput.value,
-        },
-      ],
-    });
-    if (res.code === 0) {
-      message.success("记忆添加成功");
-      await getMemoryList();
-      handleCancel();
-    }
-    uploadLoading.value = false;
-  } catch (err) {
-    uploadLoading.value = false;
-    console.log(err);
-  }
-};
-
-const updateMemory = async () => {
-  try {
-    const res = await httpClient.post("/auth/memory/update", {
-      conversation_id: conversation_id.value,
-      feedback_content: memoryInput.value,
-    });
-    if (res.code === 0) {
-      message.success("已对相关记忆进行订正");
-      await getMemoryList();
-      handleCancel();
-    }
-    uploadLoading.value = false;
-  } catch (err) {
-    uploadLoading.value = false;
-    console.log(err);
-  }
-};
-
 const deleteMemory = async (id: string) => {
   const res = await httpClient.post("/auth/memory/delete", { memo_id: id });
   if (res.code === 0) {
@@ -242,6 +155,15 @@ const clearFilter = async () => {
 
 onMounted(() => {
   getMemoryList();
+});
+
+watch(
+  () => chatService.getMemoryRefreshVersion,
+  () => getMemoryList(),
+);
+
+onBeforeUnmount(() => {
+  if (chatService.panelMode === "memory") chatService.closeWorkspacePanel();
 });
 </script>
 <style lang="less" scoped>
@@ -313,10 +235,6 @@ onMounted(() => {
   white-space: nowrap;
   color: var(--app-text);
   font-weight: 720;
-}
-
-.memory-textarea {
-  margin: 24px 0;
 }
 
 @media (max-width: 900px) {

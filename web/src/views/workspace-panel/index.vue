@@ -10,6 +10,7 @@
       shape="circle"
       :aria-label="closeLabel"
       :title="closeLabel"
+      :disabled="chat.panelMode === 'memory' && chat.memoryUploadLoading"
       @click="chat.closeWorkspacePanel()"
       ><template #icon><CloseOutlined /></template
     ></a-button>
@@ -19,6 +20,10 @@
         :key="chat.codeDraft.id"
         v-model="chat.codeDraft.code"
         :language="chat.codeDraft.language"
+      />
+      <MemoryEditorPanel
+        v-else-if="chat.panelMode === 'memory'"
+        :key="chat.memoryEditorVersion"
       />
       <FilePreview
         v-else-if="chat.panelMode === 'file' && chat.agentPreviewFile"
@@ -38,10 +43,14 @@ import ReferenceList from "./components/reference-list.vue";
 const CodeEditor = defineAsyncComponent(
   () => import("./components/code-editor.vue"),
 );
-const chat = useChatStore();
-const closeLabel = computed(() =>
-  chat.canReturnToReferences ? "关闭文件，返回参考资料" : "关闭工作面板",
+const MemoryEditorPanel = defineAsyncComponent(
+  () => import("./components/memory-editor-panel.vue"),
 );
+const chat = useChatStore();
+const closeLabel = computed(() => {
+  if (chat.panelMode === "memory") return "关闭记忆编辑器";
+  return chat.canReturnToReferences ? "关闭文件，返回参考资料" : "关闭工作面板";
+});
 </script>
 <style scoped lang="less">
 .workspace-panel {

@@ -11,7 +11,7 @@
     </p>
     <div class="background-grid" aria-label="可用背景图片">
       <button
-        v-for="image in backgroundImages"
+        v-for="image in themeService.backgroundImages"
         :key="image.id"
         class="background-option"
         :class="{ selected: themeService.backgroundImageId === image.id }"
@@ -31,8 +31,11 @@
       </button>
     </div>
     <a-empty
-      v-if="backgroundImages.length === 0"
-      description="assets/bg-images 中暂无可用图片"
+      v-if="
+        !themeService.backgroundImagesLoading &&
+        themeService.backgroundImages.length === 0
+      "
+      description="暂无可用背景图片"
     />
     <a-flex class="background-picker-actions" justify="space-between" gap="8">
       <a-button
@@ -48,10 +51,15 @@
 
 <script setup lang="ts">
 import { CheckCircleFilled } from "@ant-design/icons-vue";
-import { backgroundImages, useThemeStore } from "@view/stores/theme";
+import { useThemeStore } from "@view/stores/theme";
+import { watch } from "vue";
 
 const open = defineModel<boolean>("open", { required: true });
 const themeService = useThemeStore();
+
+watch(open, (isOpen) => {
+  if (isOpen) themeService.loadBackgroundImages().catch(() => undefined);
+});
 
 const selectBackground = (imageId: string) => {
   themeService.setBackgroundImage(imageId);

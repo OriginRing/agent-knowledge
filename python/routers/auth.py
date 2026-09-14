@@ -8,6 +8,7 @@ from models.user import (
     UserPasswordUpdateRequest,
     ApiResponse,
 )
+from models.background import BackgroundImageCreateRequest
 from services.user_service import (
     ACCESS_TOKEN_EXPIRE_SECONDS,
     register_user,
@@ -19,6 +20,7 @@ from services.user_service import (
 )
 from services.history_service import get_history_list, get_history_detail, delete_history_record
 from services.memory_service import add_memory, search_memory, list_memories, delete_memory, update_memory
+from services.background_service import create_background_image, get_background_images
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -87,6 +89,33 @@ async def patch_userinfo(request: UserUpdateRequest, access_token: str = Cookie(
     if not payload:
         return {'code': 1, 'message': 'token无效'}
     return update_user(payload.get('id'), request)
+
+@router.get("/background-images", response_model=ApiResponse, summary="获取可用背景图列表")
+async def list_background_images(access_token: str = Cookie(None)):
+    if not access_token:
+        return {'code': 1, 'message': '未登录'}
+    payload = decode_token(access_token)
+    if not payload:
+        return {'code': 1, 'message': 'token无效'}
+    user_name = payload.get('sub')
+    if not user_name:
+        return {'code': 1, 'message': '用户不存在'}
+    return get_background_images(user_name)
+
+@router.post("/background-images", response_model=ApiResponse, summary="保存用户背景图")
+async def save_background_image(
+    request: BackgroundImageCreateRequest,
+    access_token: str = Cookie(None),
+):
+    if not access_token:
+        return {'code': 1, 'message': '未登录'}
+    payload = decode_token(access_token)
+    if not payload:
+        return {'code': 1, 'message': 'token无效'}
+    user_name = payload.get('sub')
+    if not user_name:
+        return {'code': 1, 'message': '用户不存在'}
+    return create_background_image(user_name, request.name, str(request.url))
 
 @router.put("/password", response_model=ApiResponse, summary="修改用户密码")
 async def put_password(

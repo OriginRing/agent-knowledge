@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from "vue-router";
 import type { NavigationGuardNext } from "vue-router";
 import httpClient from "@view/services/http";
 import { useChatStore } from "@view/stores/chat";
+import { useThemeStore } from "@view/stores/theme";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -38,6 +39,11 @@ router.beforeEach(async (_to, _from, next: NavigationGuardNext) => {
     if (res.code === 0) {
       useChatStore().setTokenStatus(true);
       useChatStore().setUserDetail(res.data);
+      try {
+        await useThemeStore().loadBackgroundImages();
+      } catch {
+        // 背景图加载失败不应阻塞用户进入应用。
+      }
       next();
     } else {
       useChatStore().setTokenStatus(false);

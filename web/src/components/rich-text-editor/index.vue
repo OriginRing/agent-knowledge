@@ -1135,11 +1135,17 @@ onBeforeUnmount(() =>
     padding: 20px 22px 64px;
     color: var(--app-text);
     font-size: 16px;
+    font-synthesis: initial;
     line-height: 1.75;
     outline: none;
 
     p {
       margin: 0 0 12px;
+    }
+
+    em,
+    i {
+      font-style: italic;
     }
 
     ul,

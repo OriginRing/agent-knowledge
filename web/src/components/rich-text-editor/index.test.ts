@@ -121,6 +121,18 @@ describe("RichTextEditor", () => {
     expect(vm.getHTML()).toContain('width="620"');
   });
 
+  it("保留斜体语义供编辑器样式和文档导出使用", async () => {
+    const wrapper = mountEditor({
+      initialContent: "<p>普通文字<em>斜体文字</em></p>",
+      initialFormat: "html",
+    });
+    await nextTick();
+
+    const vm = wrapper.vm as unknown as RichTextEditorVm;
+    expect(vm.getHTML()).toContain("<em>斜体文字</em>");
+    expect(vm.getText()).toBe("普通文字斜体文字");
+  });
+
   it("同步纯文本、清除列表格式并响应禁用状态", async () => {
     const wrapper = mountEditor();
     const editor = (wrapper.vm as unknown as RichTextEditorVm).editor;

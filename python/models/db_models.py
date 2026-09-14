@@ -25,6 +25,28 @@ class User(Base):
     created_at = Column(TIMESTAMP, server_default=func.now(), comment='创建时间')
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), comment='更新时间')
 
+class BackgroundImage(Base):
+    __tablename__ = 'background_images'
+    __table_args__ = {'comment': '页面背景图表'}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, comment='背景名称')
+    url = Column(String(1000), nullable=False, comment='背景图片URL')
+    userId = Column(
+        String(50),
+        nullable=True,
+        index=True,
+        comment='所属用户名；为空表示系统背景',
+    )
+    push = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default='0',
+        index=True,
+        comment='是否公开推送',
+    )
+
 class AgentList(Base):
     __tablename__ = 'agent_list'
     __table_args__ = {'comment': '智能体列表'}

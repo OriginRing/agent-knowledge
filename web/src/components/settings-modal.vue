@@ -255,7 +255,7 @@
               </div>
               <div class="background-grid" aria-label="可用背景图片">
                 <button
-                  v-for="image in backgroundImages"
+                  v-for="image in themeService.backgroundImages"
                   :key="image.id"
                   class="background-option"
                   :class="{
@@ -279,9 +279,40 @@
                     />
                   </span>
                 </button>
+                <a-upload
+                  class="background-upload"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  :disabled="backgroundUploading"
+                  :show-upload-list="false"
+                  :before-upload="uploadBackground"
+                  :aria-label="
+                    backgroundUploading ? '正在上传背景图片' : '上传背景图片'
+                  "
+                  :aria-busy="backgroundUploading"
+                >
+                  <div
+                    class="background-option background-upload-option"
+                    :class="{ disabled: backgroundUploading }"
+                  >
+                    <span class="background-upload-preview">
+                      <LoadingOutlined v-if="backgroundUploading" />
+                      <PlusOutlined v-else />
+                      <span>{{
+                        backgroundUploading ? "上传中…" : "选择图片"
+                      }}</span>
+                    </span>
+                    <span class="background-option-label">
+                      <span>上传背景</span>
+                      <UploadOutlined aria-hidden="true" />
+                    </span>
+                  </div>
+                </a-upload>
               </div>
               <a-empty
-                v-if="backgroundImages.length === 0"
+                v-if="
+                  !themeService.backgroundImagesLoading &&
+                  themeService.backgroundImages.length === 0
+                "
                 description="暂无可用背景图片"
               />
             </div>
@@ -296,6 +327,8 @@
 import { reactive, ref, watch, watchEffect } from "vue";
 import {
   CheckCircleFilled,
+  LoadingOutlined,
+  PlusOutlined,
   SkinOutlined,
   UploadOutlined,
   UserOutlined,
@@ -305,7 +338,7 @@ import { useChatStore } from "@view/stores/chat";
 import httpClient from "@view/services/http";
 import type { UserInterface } from "@view/interfaces/user-interface";
 import { validatePasswordChange } from "@view/utils/profile";
-import { backgroundImages, useThemeStore } from "@view/stores/theme";
+import { useThemeStore } from "@view/stores/theme";
 
 type SettingKey = "account" | "theme";
 
@@ -317,6 +350,7 @@ const activeSetting = ref<SettingKey>("account");
 const editing = ref(false);
 const saving = ref(false);
 const avatarUploading = ref(false);
+const backgroundUploading = ref(false);
 const profileFormRef = ref<FormInstance>();
 
 const form = reactive({
@@ -364,6 +398,11 @@ const resetForm = () => {
 
 const selectSetting = (setting: SettingKey) => {
   activeSetting.value = setting;
+  if (setting === "theme") {
+    themeService
+      .loadBackgroundImages()
+      .catch(() => message.error("背景图列表加载失败"));
+  }
 };
 
 const beginEdit = () => {
@@ -401,6 +440,46 @@ const uploadAvatar = async (file: File) => {
     message.error(error instanceof Error ? error.message : "头像上传失败");
   } finally {
     avatarUploading.value = false;
+  }
+  return false;
+};
+
+const uploadBackground = async (file: File) => {
+  if (!file.type.startsWith("image/")) {
+    message.error("请选择图片文件");
+    return false;
+  }
+  if (file.size / 1024 / 1024 >= 5) {
+    message.error("背景图片不能超过 5MB");
+    return false;
+  }
+
+  backgroundUploading.value = true;
+  const data = new FormData();
+  data.append("file", file);
+  try {
+    const uploadResult = await httpClient.post<{
+      url: string;
+      filename: string;
+    }>("/file/upload", data);
+    if (uploadResult.code !== 0) throw new Error(uploadResult.message);
+
+    const saveResult = await httpClient.post<{ id: number | string }>(
+      "/auth/background-images",
+      {
+        name: uploadResult.data.filename || file.name,
+        url: uploadResult.data.url,
+      },
+    );
+    if (saveResult.code !== 0) throw new Error(saveResult.message);
+
+    await themeService.loadBackgroundImages();
+    themeService.setBackgroundImage(String(saveResult.data.id));
+    message.success("背景图片上传成功");
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : "背景图片上传失败");
+  } finally {
+    backgroundUploading.value = false;
   }
   return false;
 };
@@ -745,6 +824,47 @@ watch(open, (isOpen) => {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
+}
+
+.background-upload {
+  min-width: 0;
+
+  :deep(.ant-upload) {
+    display: block;
+    width: 100%;
+  }
+}
+
+.background-upload-option {
+  width: 100%;
+
+  &.disabled {
+    cursor: wait;
+    opacity: 0.72;
+  }
+}
+
+.background-upload-preview {
+  display: flex;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--app-primary);
+  background: var(--app-primary-soft);
+  border-bottom: 1px dashed var(--app-border);
+
+  .anticon {
+    font-size: 28px;
+  }
+
+  span {
+    color: var(--app-text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+  }
 }
 
 :deep(.ant-descriptions-view) {

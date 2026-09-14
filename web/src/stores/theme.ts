@@ -1,37 +1,31 @@
 import { defineStore } from "pinia";
+import httpClient from "@view/services/http";
 
-type BackgroundImageModule = Record<string, string>;
+export interface BackgroundImage {
+  id: string;
+  name: string;
+  url: string;
+  userId: string | null;
+  push: boolean;
+}
 
-const backgroundImageModules = import.meta.glob<BackgroundImageModule>(
-  "../assets/bg-images/*.{png,jpg,jpeg,webp,avif,gif}",
-  {
-    eager: true,
-    query: "?url",
-    import: "default",
-  },
-) as unknown as Record<string, string>;
-
-export const backgroundImages = Object.entries(backgroundImageModules)
-  .map(([path, url]) => {
-    const filename = path.split("/").pop() ?? path;
-    return {
-      id: filename,
-      name: filename.replace(/\.[^.]+$/, ""),
-      url,
-    };
-  })
-  .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+interface BackgroundImageResponse extends Omit<BackgroundImage, "id"> {
+  id: number | string;
+}
 
 export const useThemeStore = defineStore("theme", {
   state: () => ({
     isDark: localStorage.getItem("darkTheme") === "1",
     backgroundImageId: localStorage.getItem("backgroundImage") ?? "",
+    backgroundImages: [] as BackgroundImage[],
+    backgroundImagesLoading: false,
   }),
   getters: {
     getToggleDark: (state) => state.isDark,
     backgroundImageUrl: (state) =>
-      backgroundImages.find((image) => image.id === state.backgroundImageId)
-        ?.url ?? "",
+      state.backgroundImages.find(
+        (image) => image.id === state.backgroundImageId,
+      )?.url ?? "",
   },
   actions: {
     setToggleDark(theme: boolean) {
@@ -39,7 +33,7 @@ export const useThemeStore = defineStore("theme", {
       localStorage.setItem("darkTheme", this.isDark ? "1" : "0");
     },
     setBackgroundImage(imageId: string) {
-      this.backgroundImageId = backgroundImages.some(
+      this.backgroundImageId = this.backgroundImages.some(
         (image) => image.id === imageId,
       )
         ? imageId
@@ -49,6 +43,30 @@ export const useThemeStore = defineStore("theme", {
         localStorage.setItem("backgroundImage", this.backgroundImageId);
       } else {
         localStorage.removeItem("backgroundImage");
+      }
+    },
+    async loadBackgroundImages() {
+      this.backgroundImagesLoading = true;
+      try {
+        const result = await httpClient.get<BackgroundImageResponse[]>(
+          "/auth/background-images",
+        );
+        if (result.code !== 0) throw new Error(result.message);
+        this.backgroundImages = result.data.map((image) => ({
+          ...image,
+          id: String(image.id),
+          push: Boolean(image.push),
+        }));
+        if (
+          this.backgroundImageId &&
+          !this.backgroundImages.some(
+            (image) => image.id === this.backgroundImageId,
+          )
+        ) {
+          this.setBackgroundImage("");
+        }
+      } finally {
+        this.backgroundImagesLoading = false;
       }
     },
   },

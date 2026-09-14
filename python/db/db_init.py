@@ -1,6 +1,6 @@
 from sqlalchemy import text
 from db.sqlalchemy_connection import create_tables, get_session
-from models.db_models import AgentList
+from models.db_models import AgentList, BackgroundImage
 from models import admin_models  # register control-plane tables
 
 def init_tables():
@@ -10,6 +10,8 @@ def init_tables():
     ensure_agent_slot()
     ensure_agent_model_id()
     ensure_history_longtext()
+    ensure_background_image_user_id()
+    ensure_background_images()
     from services.admin_service import bootstrap
     bootstrap()
 
@@ -127,6 +129,67 @@ def ensure_history_longtext():
         if session:
             session.rollback()
         print(f"history.records 升级检查失败: {exc}")
+    finally:
+        if session:
+            session.close()
+
+
+def ensure_background_images():
+    session = None
+    try:
+        session = get_session('agent-user')
+        if session.query(BackgroundImage).count() == 0:
+            session.add_all([
+                BackgroundImage(
+                    name='你的名字',
+                    url='/bg-images/%E4%BD%A0%E7%9A%84%E5%90%8D%E5%AD%97.jpeg',
+                    userId=None,
+                    push=True,
+                ),
+                BackgroundImage(
+                    name='星空',
+                    url='/bg-images/%E6%98%9F%E7%A9%BA.jpg',
+                    userId=None,
+                    push=True,
+                ),
+                BackgroundImage(
+                    name='雪景',
+                    url='/bg-images/%E9%9B%AA%E6%99%AF.avif',
+                    userId=None,
+                    push=True,
+                ),
+            ])
+            session.commit()
+            print("background_images 默认数据初始化成功")
+    except Exception as exc:
+        if session:
+            session.rollback()
+        print(f"background_images 默认数据初始化失败: {exc}")
+    finally:
+        if session:
+            session.close()
+
+
+def ensure_background_image_user_id():
+    session = None
+    try:
+        session = get_session('agent-user')
+        column_type = session.execute(text(
+            "SELECT DATA_TYPE FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'background_images' "
+            "AND COLUMN_NAME = 'userId'"
+        )).scalar()
+        if column_type and column_type.lower() != 'varchar':
+            session.execute(text(
+                "ALTER TABLE background_images MODIFY userId VARCHAR(50) NULL "
+                "COMMENT '所属用户名；为空表示系统背景'"
+            ))
+            session.commit()
+            print("background_images.userId 已升级为用户名字段")
+    except Exception as exc:
+        if session:
+            session.rollback()
+        print(f"background_images.userId 升级检查失败: {exc}")
     finally:
         if session:
             session.close()

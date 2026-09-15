@@ -46,6 +46,7 @@ class BackgroundImage(Base):
         index=True,
         comment='是否公开推送',
     )
+    promotionText = Column(String(500), nullable=True, comment='推送宣传文案')
 
 class AgentList(Base):
     __tablename__ = 'agent_list'

@@ -11,6 +11,7 @@ def init_tables():
     ensure_agent_model_id()
     ensure_history_longtext()
     ensure_background_image_user_id()
+    ensure_background_image_promotion_text()
     ensure_background_images()
     from services.admin_service import bootstrap
     bootstrap()
@@ -144,19 +145,19 @@ def ensure_background_images():
                     name='你的名字',
                     url='/bg-images/%E4%BD%A0%E7%9A%84%E5%90%8D%E5%AD%97.jpeg',
                     userId=None,
-                    push=True,
+                    push=False,
                 ),
                 BackgroundImage(
                     name='星空',
                     url='/bg-images/%E6%98%9F%E7%A9%BA.jpg',
                     userId=None,
-                    push=True,
+                    push=False,
                 ),
                 BackgroundImage(
                     name='雪景',
                     url='/bg-images/%E9%9B%AA%E6%99%AF.avif',
                     userId=None,
-                    push=True,
+                    push=False,
                 ),
             ])
             session.commit()
@@ -190,6 +191,31 @@ def ensure_background_image_user_id():
         if session:
             session.rollback()
         print(f"background_images.userId 升级检查失败: {exc}")
+    finally:
+        if session:
+            session.close()
+
+
+def ensure_background_image_promotion_text():
+    session = None
+    try:
+        session = get_session('agent-user')
+        column_exists = session.execute(text(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'background_images' "
+            "AND COLUMN_NAME = 'promotionText'"
+        )).scalar()
+        if not column_exists:
+            session.execute(text(
+                "ALTER TABLE background_images ADD COLUMN promotionText "
+                "VARCHAR(500) NULL COMMENT '推送宣传文案' AFTER push"
+            ))
+            session.commit()
+            print("background_images.promotionText 字段初始化成功")
+    except Exception as exc:
+        if session:
+            session.rollback()
+        print(f"background_images.promotionText 字段初始化失败: {exc}")
     finally:
         if session:
             session.close()

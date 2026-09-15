@@ -7,6 +7,7 @@ export interface BackgroundImage {
   url: string;
   userId: string | null;
   push: boolean;
+  promotionText: string | null;
 }
 
 interface BackgroundImageResponse extends Omit<BackgroundImage, "id"> {
@@ -19,6 +20,7 @@ export const useThemeStore = defineStore("theme", {
     backgroundImageId: localStorage.getItem("backgroundImage") ?? "",
     backgroundImages: [] as BackgroundImage[],
     backgroundImagesLoading: false,
+    pushedBackground: null as BackgroundImage | null,
   }),
   getters: {
     getToggleDark: (state) => state.isDark,
@@ -57,6 +59,17 @@ export const useThemeStore = defineStore("theme", {
           id: String(image.id),
           push: Boolean(image.push),
         }));
+        if (!this.pushedBackground) {
+          this.pushedBackground =
+            [...this.backgroundImages]
+              .reverse()
+              .find(
+                (image) =>
+                  image.push &&
+                  sessionStorage.getItem(`backgroundPushSeen:${image.id}`) !==
+                    "1",
+              ) ?? null;
+        }
         if (
           this.backgroundImageId &&
           !this.backgroundImages.some(
@@ -68,6 +81,15 @@ export const useThemeStore = defineStore("theme", {
       } finally {
         this.backgroundImagesLoading = false;
       }
+    },
+    dismissPushedBackground() {
+      if (this.pushedBackground) {
+        sessionStorage.setItem(
+          `backgroundPushSeen:${this.pushedBackground.id}`,
+          "1",
+        );
+      }
+      this.pushedBackground = null;
     },
   },
 });

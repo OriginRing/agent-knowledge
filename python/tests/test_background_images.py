@@ -18,6 +18,7 @@ class BackgroundImageServiceTest(unittest.TestCase):
                 url='/bg-images/star.jpg',
                 userId=None,
                 push=True,
+                promotionText='试试新的星空背景',
             ),
             SimpleNamespace(
                 id=2,
@@ -25,6 +26,7 @@ class BackgroundImageServiceTest(unittest.TestCase):
                 url='https://example.com/mine.jpg',
                 userId='000001',
                 push=False,
+                promotionText=None,
             ),
         ]
 
@@ -54,6 +56,7 @@ class BackgroundImageServiceTest(unittest.TestCase):
         self.assertEqual(result['code'], 0)
         self.assertEqual(result['data'][0]['id'], 1)
         self.assertTrue(result['data'][0]['push'])
+        self.assertEqual(result['data'][0]['promotionText'], '试试新的星空背景')
         self.assertEqual(result['data'][1]['userId'], '000001')
 
     def test_creates_private_background_for_current_username(self):

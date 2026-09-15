@@ -11,6 +11,7 @@ def _serialize_background_image(image: BackgroundImage):
         'url': image.url,
         'userId': image.userId,
         'push': bool(image.push),
+        'promotionText': image.promotionText,
     }
 
 
@@ -22,7 +23,7 @@ def get_background_images(user_name: str):
             session.query(BackgroundImage)
             .filter(
                 or_(
-                    BackgroundImage.push.is_(True),
+                    BackgroundImage.userId.is_(None),
                     BackgroundImage.userId == user_name,
                 )
             )
@@ -50,6 +51,7 @@ def create_background_image(user_name: str, name: str, url: str):
             url=url,
             userId=user_name,
             push=False,
+            promotionText=None,
         )
         session.add(image)
         session.commit()

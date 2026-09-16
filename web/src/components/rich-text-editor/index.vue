@@ -392,6 +392,16 @@
             <template #icon><ClearOutlined /></template>
           </a-button>
         </a-tooltip>
+        <a-tooltip title="插入时间">
+          <a-button
+            type="text"
+            :disabled="disabled || !editor"
+            aria-label="插入时间"
+            @click="insertCurrentDate"
+          >
+            <template #icon><CalendarOutlined /></template>
+          </a-button>
+        </a-tooltip>
       </div>
 
       <div class="toolbar-group" role="group" aria-label="表格工具">
@@ -560,6 +570,7 @@ import MarkdownIt from "markdown-it";
 import {
   AlignCenterOutlined,
   BoldOutlined,
+  CalendarOutlined,
   CheckSquareOutlined,
   ClearOutlined,
   CodeOutlined,
@@ -779,6 +790,21 @@ const clearContent = () => editor.value?.commands.clearContent();
 
 const clearFormatting = () => {
   editor.value?.chain().focus().clearNodes().unsetAllMarks().run();
+};
+
+const insertCurrentDate = () => {
+  if (!editor.value || props.disabled) return;
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  editor.value
+    .chain()
+    .focus()
+    .insertContent(`${year}年${month}月${day}日`)
+    .run();
+  editor.value.chain().focus().setHardBreak().run();
 };
 
 const currentHeadingLabel = (): string => {

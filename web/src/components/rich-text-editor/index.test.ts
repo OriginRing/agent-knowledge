@@ -71,6 +71,7 @@ const mountEditor = (props: Record<string, unknown> = {}) =>
         }),
         AlignCenterOutlined: true,
         BoldOutlined: true,
+        CalendarOutlined: true,
         CheckSquareOutlined: true,
         ClearOutlined: true,
         CodeOutlined: true,
@@ -201,6 +202,7 @@ describe("RichTextEditor", () => {
       "设置字号",
       "设置字体",
       "设置行高",
+      "插入时间",
       "全屏编辑",
     ]) {
       expect(wrapper.find(`[aria-label="${label}"]`).exists()).toBe(true);
@@ -217,6 +219,26 @@ describe("RichTextEditor", () => {
     expect(editor.isActive("bold")).toBe(true);
     await wrapper.get('[aria-label="切换引用"]').trigger("click");
     expect(editor.isActive("blockquote")).toBe(true);
+  });
+
+  it("插入当前年月日并在日期后换行", async () => {
+    const wrapper = mountEditor();
+    await nextTick();
+    const vm = wrapper.vm as unknown as RichTextEditorVm;
+    const now = new Date();
+    const expectedDate = `${now.getFullYear()}年${String(
+      now.getMonth() + 1,
+    ).padStart(2, "0")}月${String(now.getDate()).padStart(2, "0")}日`;
+
+    const insertTimeButton = wrapper.get('[aria-label="插入时间"]');
+    expect(insertTimeButton.attributes("disabled")).toBeUndefined();
+    await insertTimeButton.trigger("click");
+
+    expect(vm.getHTML()).toBe(`<p>${expectedDate}<br></p>`);
+    expect(vm.getText()).toBe(expectedDate);
+    expect(vm.editor.getJSON().content?.[0]?.content?.at(-1)).toEqual({
+      type: "hardBreak",
+    });
   });
 
   it("让各工具逐项参与整行换行并保留分组边界", () => {

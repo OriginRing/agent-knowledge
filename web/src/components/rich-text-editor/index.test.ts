@@ -16,6 +16,7 @@ type RichTextEditorVm = {
   editor: Editor;
   getContent: () => RichTextEditorContent;
   getHTML: () => string;
+  getMarkdown: () => string;
   getText: () => string;
   setContent: (content: string, format?: RichTextEditorInputFormat) => boolean;
 };
@@ -96,15 +97,15 @@ const mountEditor = (props: Record<string, unknown> = {}) =>
   });
 
 describe("RichTextEditor", () => {
-  it("可用 Markdown 初始化公共编辑器内容", async () => {
+  it("默认用 Markdown 初始化公共编辑器内容", async () => {
     const wrapper = mountEditor({
       initialContent: "## 回答标题\n\n回答正文",
-      initialFormat: "markdown",
     });
     await nextTick();
 
     const vm = wrapper.vm as unknown as RichTextEditorVm;
     expect(vm.getHTML()).toContain("<h2>回答标题</h2>");
+    expect(vm.getMarkdown()).toBe("## 回答标题\n\n回答正文");
     expect(vm.getText()).toBe("回答标题\n\n回答正文");
   });
 
@@ -160,6 +161,7 @@ describe("RichTextEditor", () => {
     await nextTick();
 
     expect(wrapper.emitted("update:text")?.at(-1)).toEqual(["- 偏好中文"]);
+    expect(wrapper.emitted("update:markdown")?.at(-1)).toEqual(["- 偏好中文"]);
     expect(wrapper.get(".editor-meta").text()).toBe("6 字");
 
     await wrapper.get('[aria-label="清除格式"]').trigger("click");
@@ -321,6 +323,7 @@ describe("RichTextEditor", () => {
 
     expect(vm.getContent()).toEqual({
       html: "<h2>回复偏好</h2><p>使用<strong>中文</strong>回答</p>",
+      markdown: "## 回复偏好\n\n使用**中文**回答",
       text: "回复偏好\n\n使用中文回答",
     });
     expect(wrapper.emitted("update:html")?.at(-1)).toEqual([
@@ -328,6 +331,9 @@ describe("RichTextEditor", () => {
     ]);
     expect(wrapper.emitted("update:text")?.at(-1)).toEqual([
       "回复偏好\n\n使用中文回答",
+    ]);
+    expect(wrapper.emitted("update:markdown")?.at(-1)).toEqual([
+      "## 回复偏好\n\n使用**中文**回答",
     ]);
     expect(vm.getHTML()).toBe(
       "<h2>回复偏好</h2><p>使用<strong>中文</strong>回答</p>",
@@ -339,10 +345,11 @@ describe("RichTextEditor", () => {
     const wrapper = mountEditor();
     const vm = wrapper.vm as unknown as RichTextEditorVm;
 
-    vm.setContent("# 个人偏好\n\n使用 **中文** 回答", "markdown");
+    vm.setContent("# 个人偏好\n\n使用 **中文** 回答");
     await nextTick();
     expect(vm.getContent()).toEqual({
       html: "<h1>个人偏好</h1><p>使用 <strong>中文</strong> 回答</p>",
+      markdown: "# 个人偏好\n\n使用 **中文** 回答",
       text: "个人偏好\n\n使用 中文 回答",
     });
 
@@ -350,6 +357,7 @@ describe("RichTextEditor", () => {
     await nextTick();
     expect(vm.getContent()).toEqual({
       html: "<p>&lt;strong&gt;普通文本&lt;/strong&gt;<br>第二行</p>",
+      markdown: "\\<strong\\>普通文本\\</strong\\>  \n第二行",
       text: "<strong>普通文本</strong>\n第二行",
     });
 
@@ -373,6 +381,69 @@ describe("RichTextEditor", () => {
 
     expect(vm.getHTML()).toContain("<table");
     expect(vm.getHTML()).toContain("<th");
+    expect(vm.getMarkdown()).toBe(
+      "| 偏好 | 内容 |\n| --- | --- |\n| 语言 | 中文 |",
+    );
     expect(vm.getText()).toBe("偏好 | 内容\n语言 | 中文");
+  });
+
+  it("把编辑器语义输出为 Memos 可接收的 Markdown", async () => {
+    const wrapper = mountEditor();
+    const vm = wrapper.vm as unknown as RichTextEditorVm;
+
+    vm.editor.commands.setContent({
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 2 },
+          content: [{ type: "text", text: "长期偏好" }],
+        },
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "使用" },
+            { type: "text", text: "中文", marks: [{ type: "bold" }] },
+            { type: "text", text: "，参考" },
+            {
+              type: "text",
+              text: "项目文档",
+              marks: [
+                { type: "link", attrs: { href: "https://example.com/docs" } },
+              ],
+            },
+          ],
+        },
+        {
+          type: "blockquote",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "回答保持简洁" }],
+            },
+          ],
+        },
+        {
+          type: "taskList",
+          content: [
+            {
+              type: "taskItem",
+              attrs: { checked: true },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "先给结论" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    await nextTick();
+
+    expect(vm.getMarkdown()).toBe(
+      "## 长期偏好\n\n使用**中文**，参考[项目文档](https://example.com/docs)\n\n> 回答保持简洁\n\n- [x] 先给结论",
+    );
   });
 });

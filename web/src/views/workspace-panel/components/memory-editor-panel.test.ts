@@ -2,6 +2,7 @@
 
 import { mount } from "@vue/test-utils";
 import { createPinia } from "pinia";
+import { nextTick } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useChatStore } from "@view/stores/chat";
 import MemoryEditorPanel from "./memory-editor-panel.vue";
@@ -63,6 +64,23 @@ describe("右侧记忆编辑面板", () => {
     expect(mocks.success).toHaveBeenCalledWith("记忆添加成功");
     expect(chat.memoryRefreshVersion).toBe(1);
     expect(chat.agentPreview).toBe(false);
+  });
+
+  it("接收编辑器输出的 Markdown 并原样提交给 Memos", async () => {
+    const { wrapper } = mountPanel();
+    wrapper
+      .getComponent({ name: "RichTextEditor" })
+      .vm.$emit("update:markdown", "## 回复偏好\n\n使用 **中文** 回答");
+    await nextTick();
+
+    await (wrapper.vm as unknown as MemoryPanelVm).submitMemory();
+
+    expect(mocks.post).toHaveBeenCalledWith("/auth/memory/add", {
+      conversation_id: "000001",
+      messages: [
+        { role: "user", content: "## 回复偏好\n\n使用 **中文** 回答" },
+      ],
+    });
   });
 
   it("在面板内保持订正接口契约", async () => {

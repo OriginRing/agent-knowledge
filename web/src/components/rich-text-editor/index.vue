@@ -591,7 +591,10 @@ import {
   UnderlineOutlined,
   UnorderedListOutlined,
 } from "@ant-design/icons-vue";
-import { serializeRichTextDocument } from "./serializer";
+import {
+  serializeMarkdownDocument,
+  serializePlainTextDocument,
+} from "./serializer";
 import {
   createTextDocument,
   type RichTextEditorContent,
@@ -609,13 +612,14 @@ const props = withDefaults(
   {
     disabled: false,
     initialContent: "",
-    initialFormat: "html",
+    initialFormat: "markdown",
     placeholder: "请输入内容",
   },
 );
 
 const emit = defineEmits<{
   "update:html": [value: string];
+  "update:markdown": [value: string];
   "update:text": [value: string];
 }>();
 const characterCount = ref(0);
@@ -704,17 +708,20 @@ const headingLevels: HeadingLevel[] = [1, 2, 3, 4, 5, 6];
 const readContent = (
   currentEditor: ContentReader | null | undefined,
 ): RichTextEditorContent => {
-  if (!currentEditor) return { html: "", text: "" };
+  if (!currentEditor) return { html: "", markdown: "", text: "" };
+  const document = currentEditor.getJSON();
   return {
     html: currentEditor.getHTML(),
-    text: serializeRichTextDocument(currentEditor.getJSON()),
+    markdown: serializeMarkdownDocument(document),
+    text: serializePlainTextDocument(document),
   };
 };
 
 const emitContent = (currentEditor: ContentReader) => {
-  const { html, text } = readContent(currentEditor);
+  const { html, markdown, text } = readContent(currentEditor);
   characterCount.value = text.length;
   emit("update:html", html);
+  emit("update:markdown", markdown);
   emit("update:text", text);
 };
 
@@ -775,7 +782,7 @@ const editor = useEditor({
 
 const setContent = (
   content: string,
-  format: RichTextEditorInputFormat = "html",
+  format: RichTextEditorInputFormat = "markdown",
 ): boolean => {
   if (!editor.value) return false;
   editor.value.commands.setContent(normalizeContent(content, format));
@@ -784,6 +791,7 @@ const setContent = (
 
 const getContent = (): RichTextEditorContent => readContent(editor.value);
 const getHTML = (): string => getContent().html;
+const getMarkdown = (): string => getContent().markdown;
 const getText = (): string => getContent().text;
 
 const clearContent = () => editor.value?.commands.clearContent();
@@ -950,6 +958,7 @@ defineExpose({
   editor,
   getContent,
   getHTML,
+  getMarkdown,
   getText,
   setContent,
 });

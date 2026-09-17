@@ -4,6 +4,7 @@ export type RichTextEditorInputFormat = "html" | "markdown" | "text";
 
 export interface RichTextEditorContent {
   html: string;
+  markdown: string;
   text: string;
 }
 

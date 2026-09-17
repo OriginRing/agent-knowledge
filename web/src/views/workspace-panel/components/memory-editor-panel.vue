@@ -3,7 +3,7 @@
     <header class="memory-panel-header">
       <h2>{{ isCorrection ? "订正记忆" : "新增记忆" }}</h2>
       <p v-if="!isCorrection">
-        写下希望系统长期记住的偏好、习惯或重要信息。上传时仍以纯文本保存。
+        写下希望系统长期记住的偏好、习惯或重要信息。内容将以 Markdown 格式保存。
       </p>
     </header>
 
@@ -19,7 +19,7 @@
       class="memory-panel-editor"
       :disabled="chat.memoryUploadLoading"
       placeholder="请输入希望长期保留的偏好、习惯或重要信息"
-      @update:text="memoryInput = $event"
+      @update:markdown="memoryInput = $event"
     />
 
     <footer class="memory-panel-footer">

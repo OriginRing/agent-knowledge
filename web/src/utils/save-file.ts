@@ -1,38 +1,11 @@
 import { snapdom } from "@zumer/snapdom";
 import { message } from "ant-design-vue";
-import { asBlob } from "html-docx-js-typescript";
 import { saveAs } from "file-saver";
+
+import { createStandardDocxBlob } from "./docx-export";
 
 const A4_MAX_WIDTH = 620;
 const CHART_EXPORT_ERROR_TEXT = "图表导出失败";
-const DOCX_STYLES = `
-  body { font-family: '微软雅黑', sans-serif; font-size: 14px; color: #333; }
-  h1 { color: #1a73e8; font-size: 24px; margin-bottom: 10px; text-align: center; }
-  p { line-height: 1.6; text-indent: 2em; }
-  img {
-    display: block !important;
-    max-width: 620px !important;
-    width: 100% !important;
-    height: auto !important;
-    margin: 0 auto !important;
-    padding: 0 !important;
-    vertical-align: middle !important;
-  }
-`;
-const DOCX_OPTIONS = {
-  orientation: "portrait" as const,
-  margins: {
-    top: 1440,
-    right: 1440,
-    bottom: 1440,
-    left: 1440,
-  },
-  font: {
-    name: "微软雅黑",
-    size: 28,
-  },
-};
-
 export interface DocxExportContent {
   html: string;
   failedChartCount: number;
@@ -102,19 +75,16 @@ export async function prepareDocxContent(
   };
 }
 
-async function exportDocx(element: HTMLElement, fileName: string) {
+async function exportDocx(
+  element: HTMLElement,
+  fileName: string,
+  isLinkBreak: boolean,
+) {
   try {
     const exportContent = await prepareDocxContent(element);
-    const fullHtml = `
-          <!DOCTYPE html>
-          <html>
-              <head><meta charset="UTF-8"><style>${DOCX_STYLES}</style></head>
-              <body>${exportContent.html}</body>
-          </html>`;
-    const blob: Blob = (await asBlob(
-      fullHtml,
-      DOCX_OPTIONS,
-    )) as unknown as Blob;
+    const blob = await createStandardDocxBlob(exportContent.html, {
+      isLinkBreak,
+    });
     saveAs(blob, fileName);
     if (exportContent.failedChartCount > 0) {
       message.warning(
@@ -130,17 +100,19 @@ async function exportDocx(element: HTMLElement, fileName: string) {
 export async function saveDocx(
   elementId: string,
   fileName = `${Date.now()}.docx`,
+  isLinkBreak = true,
 ) {
   const element = document.getElementById(elementId);
   if (!element) return;
-  await exportDocx(element, fileName);
+  await exportDocx(element, fileName, isLinkBreak);
 }
 
 export async function saveHtmlAsDocx(
   html: string,
   fileName = `${Date.now()}.docx`,
+  isLinkBreak = true,
 ) {
   const element = document.createElement("div");
   element.innerHTML = html;
-  await exportDocx(element, fileName);
+  await exportDocx(element, fileName, isLinkBreak);
 }

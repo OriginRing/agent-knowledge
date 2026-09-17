@@ -3,9 +3,9 @@
 import { snapdom } from "@zumer/snapdom";
 import { message } from "ant-design-vue";
 import { saveAs } from "file-saver";
-import { asBlob } from "html-docx-js-typescript";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createStandardDocxBlob } from "./docx-export";
 import { prepareDocxContent, saveDocx, saveHtmlAsDocx } from "./save-file";
 
 vi.mock("@zumer/snapdom", () => ({
@@ -23,12 +23,10 @@ vi.mock("file-saver", () => ({
   saveAs: vi.fn(),
 }));
 
-vi.mock("html-docx-js-typescript", () => ({
-  asBlob: vi.fn(),
-}));
+vi.mock("./docx-export", () => ({ createStandardDocxBlob: vi.fn() }));
 
 const mockedSnapdom = vi.mocked(snapdom);
-const mockedAsBlob = vi.mocked(asBlob);
+const mockedCreateDocx = vi.mocked(createStandardDocxBlob);
 const mockedSaveAs = vi.mocked(saveAs);
 const mockedWarning = vi.mocked(message.warning);
 const mockedError = vi.mocked(message.error);
@@ -53,7 +51,7 @@ describe("Word 下载", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.clearAllMocks();
-    mockedAsBlob.mockResolvedValue(new Blob(["docx"]));
+    mockedCreateDocx.mockResolvedValue(new Blob(["docx"]));
   });
 
   it("无图表时保留正文并且不调用截图", async () => {
@@ -116,7 +114,7 @@ describe("Word 下载", () => {
 
     await saveDocx("assistant-message", "report.docx");
 
-    const exportedHtml = String(mockedAsBlob.mock.calls[0][0]);
+    const exportedHtml = mockedCreateDocx.mock.calls[0][0];
     expect(exportedHtml).toContain("data:image/png;base64,ok");
     expect(exportedHtml).toContain("图表导出失败");
     expect(mockedSaveAs).toHaveBeenCalledWith(expect.any(Blob), "report.docx");
@@ -146,15 +144,30 @@ describe("Word 下载", () => {
   it("可将编辑器 HTML 直接导出为 Word", async () => {
     await saveHtmlAsDocx("<h2>编辑后的回答</h2><p>正文内容</p>", "回答.docx");
 
-    const exportedHtml = String(mockedAsBlob.mock.calls[0][0]);
+    const exportedHtml = mockedCreateDocx.mock.calls[0][0];
     expect(exportedHtml).toContain("编辑后的回答");
     expect(exportedHtml).toContain("正文内容");
+    expect(mockedCreateDocx).toHaveBeenCalledWith(exportedHtml, {
+      isLinkBreak: true,
+    });
     expect(mockedSaveAs).toHaveBeenCalledWith(expect.any(Blob), "回答.docx");
+  });
+
+  it("可关闭表头换行", async () => {
+    await saveHtmlAsDocx(
+      "<table><tr><th>表头</th></tr></table>",
+      "表格.docx",
+      false,
+    );
+
+    expect(mockedCreateDocx).toHaveBeenCalledWith(expect.any(String), {
+      isLinkBreak: false,
+    });
   });
 
   it("Word 生成失败时提示错误且不触发下载", async () => {
     appendMessage("<p>正文</p>");
-    mockedAsBlob.mockRejectedValue(new Error("docx failed"));
+    mockedCreateDocx.mockRejectedValue(new Error("docx failed"));
 
     await saveDocx("assistant-message", "report.docx");
 

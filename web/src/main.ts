@@ -6,6 +6,7 @@ import darkMarkdownCss from "github-markdown-css/github-markdown-dark.css?raw";
 import "ant-design-vue/dist/reset.css";
 import "./style.less";
 import "./styles/markdown.less";
+import "./styles/antd.less";
 import App from "./App.vue";
 import { createPinia } from "pinia";
 import router from "./router";

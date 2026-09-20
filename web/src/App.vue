@@ -26,18 +26,23 @@ const route = useRoute();
 const themeStore = useThemeStore();
 const chatService = useChatStore();
 const historyView = ref(true);
+const appFontFamily = "var(--sans)";
 const disable = computed(() => {
   return chatService.getAgentPreview ? null : "right";
 });
 
 const themeConfig = computed(() => ({
   algorithm: themeStore.isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
+  token: {
+    fontFamily: appFontFamily,
+  },
 }));
 
 const workspaceThemeConfig = computed(() => ({
   algorithm: themeStore.isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
   token: {
     colorPrimary: themeStore.isDark ? "#9f96ff" : "#7167e8",
+    fontFamily: appFontFamily,
   },
 }));
 

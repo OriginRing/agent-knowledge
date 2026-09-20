@@ -7,8 +7,6 @@ import {
   ImageRun,
   LevelFormat,
   LineRuleType,
-  PageBorderDisplay,
-  PageBorderOffsetFrom,
   PageOrientation,
   Packer,
   Paragraph,
@@ -63,6 +61,7 @@ interface TextStyle {
   underline?: boolean;
   strike?: boolean;
   color?: string;
+  backgroundColor?: string;
   font?: string;
 }
 
@@ -97,10 +96,19 @@ class StyledTableCell extends TableCell {
 }
 
 function normalizeColor(value: string) {
-  const hex = value.trim().match(/^#([\da-f]{6})$/i);
+  const normalizedValue = value.trim();
+  if (
+    !normalizedValue ||
+    normalizedValue === "transparent" ||
+    /^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/i.test(normalizedValue)
+  ) {
+    return undefined;
+  }
+
+  const hex = normalizedValue.match(/^#([\da-f]{6})$/i);
   if (hex) return hex[1].toUpperCase();
 
-  const rgb = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  const rgb = normalizedValue.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
   if (!rgb) return undefined;
   return rgb
     .slice(1, 4)
@@ -134,6 +142,9 @@ function mergeTextStyle(style: TextStyle, element: HTMLElement): TextStyle {
       tag === "del" ||
       textDecoration.includes("line-through"),
     color: normalizeColor(element.style.color) || style.color,
+    backgroundColor:
+      normalizeColor(element.style.backgroundColor) ||
+      (tag === "mark" ? "FFFF00" : style.backgroundColor),
     font:
       tag === "code" || tag === "pre"
         ? "Consolas"
@@ -149,6 +160,13 @@ function textRun(text: string, style: TextStyle) {
     underline: style.underline ? {} : undefined,
     strike: style.strike,
     color: style.color,
+    shading: style.backgroundColor
+      ? {
+          type: ShadingType.CLEAR,
+          fill: style.backgroundColor,
+          color: "auto",
+        }
+      : undefined,
     font: style.font,
   });
 }
@@ -578,16 +596,6 @@ export async function createStandardDocxBlob(
               orientation: PageOrientation.PORTRAIT,
             },
             margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
-            borders: {
-              pageBorders: {
-                display: PageBorderDisplay.ALL_PAGES,
-                offsetFrom: PageBorderOffsetFrom.TEXT,
-              },
-              pageBorderTop: TABLE_BORDER,
-              pageBorderRight: TABLE_BORDER,
-              pageBorderBottom: TABLE_BORDER,
-              pageBorderLeft: TABLE_BORDER,
-            },
           },
         },
         children: children.length ? children : [new Paragraph("")],

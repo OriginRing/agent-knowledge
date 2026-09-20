@@ -67,6 +67,17 @@ describe("标准 DOCX 导出", () => {
     expect(xml).toContain('w:after="240"');
     expect(xml).toContain('w:line="560"');
     expect(xml).toContain('w:lineRule="exact"');
+    expect(xml).not.toContain("<w:pgBorders>");
+  });
+
+  it("保留文字背景色", async () => {
+    const { xml } = await documentFiles(
+      '<p>普通文字<span style="background-color: #fff1b8">高亮文字<strong>加粗高亮</strong></span></p>',
+    );
+
+    expect(xml?.match(/w:fill="FFF1B8"/g)).toHaveLength(2);
+    expect(xml).toContain("高亮文字");
+    expect(xml).toContain("加粗高亮");
   });
 
   it("isLinkBreak 只控制表头是否禁止换行", async () => {

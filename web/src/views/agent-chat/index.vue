@@ -144,18 +144,34 @@
                 >
                   <FormOutlined />
                 </a-button>
-                <a-button
+                <a-dropdown
                   v-if="
                     item.role === 'assistant' &&
                     chatService.getAgentDetail?.supportDownload
                   "
-                  type="text"
-                  size="small"
-                  aria-label="下载回答"
-                  @click="downloadChat(item.key)"
+                  :trigger="['click']"
+                  placement="bottomRight"
                 >
-                  <DownloadOutlined />
-                </a-button>
+                  <a-button
+                    type="text"
+                    size="small"
+                    aria-label="下载回答"
+                    :loading="downloadingAnswerKey === item.key"
+                  >
+                    <DownloadOutlined />
+                  </a-button>
+                  <template #overlay>
+                    <a-menu>
+                      <a-menu-item
+                        v-for="option in downloadFormatOptions"
+                        :key="option.value"
+                        @click="downloadChat(item.key, option.value)"
+                      >
+                        {{ option.label }}
+                      </a-menu-item>
+                    </a-menu>
+                  </template>
+                </a-dropdown>
               </a-flex>
             </a-flex>
           </template>
@@ -224,7 +240,11 @@ import {
   renderStreamingMarkdown,
 } from "@view/utils/typewriter";
 import { createChatSession } from "@view/utils/random";
-import { prepareDocxContent, saveDocx } from "@view/utils/save-file";
+import {
+  prepareDocxContent,
+  saveChatResult,
+  type DownloadFormat,
+} from "@view/utils/save-file";
 import { copyToClipboard } from "@view/utils/copy";
 import type {
   AgentChat,
@@ -617,7 +637,25 @@ const sendMessage = async (
   }
 };
 
-const downloadChat = (index: string) => saveDocx(`chat-message-${index}`);
+const downloadFormatOptions: Array<{
+  label: string;
+  value: DownloadFormat;
+}> = [
+  { label: "DOCX 文档", value: "docx" },
+  { label: "HTML 网页", value: "html" },
+  { label: "XLSX 表格", value: "xlsx" },
+];
+const downloadingAnswerKey = ref("");
+
+const downloadChat = async (index: string, format: DownloadFormat) => {
+  if (downloadingAnswerKey.value) return;
+  downloadingAnswerKey.value = index;
+  try {
+    await saveChatResult(`chat-message-${index}`, format);
+  } finally {
+    downloadingAnswerKey.value = "";
+  }
+};
 
 watch(
   () => chatService.getNewConversation,

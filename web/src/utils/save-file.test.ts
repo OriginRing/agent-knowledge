@@ -6,7 +6,13 @@ import { saveAs } from "file-saver";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createStandardDocxBlob } from "./docx-export";
-import { prepareDocxContent, saveDocx, saveHtmlAsDocx } from "./save-file";
+import {
+  prepareDocxContent,
+  saveChatResult,
+  saveDocx,
+  saveHtmlAsDocx,
+} from "./save-file";
+import { createStandardXlsxBlob } from "./xlsx-export";
 
 vi.mock("@zumer/snapdom", () => ({
   snapdom: vi.fn(),
@@ -24,9 +30,11 @@ vi.mock("file-saver", () => ({
 }));
 
 vi.mock("./docx-export", () => ({ createStandardDocxBlob: vi.fn() }));
+vi.mock("./xlsx-export", () => ({ createStandardXlsxBlob: vi.fn() }));
 
 const mockedSnapdom = vi.mocked(snapdom);
 const mockedCreateDocx = vi.mocked(createStandardDocxBlob);
+const mockedCreateXlsx = vi.mocked(createStandardXlsxBlob);
 const mockedSaveAs = vi.mocked(saveAs);
 const mockedWarning = vi.mocked(message.warning);
 const mockedError = vi.mocked(message.error);
@@ -52,6 +60,7 @@ describe("Word 下载", () => {
     document.body.innerHTML = "";
     vi.clearAllMocks();
     mockedCreateDocx.mockResolvedValue(new Blob(["docx"]));
+    mockedCreateXlsx.mockResolvedValue(new Blob(["xlsx"]));
   });
 
   it("无图表时保留正文并且不调用截图", async () => {
@@ -163,6 +172,57 @@ describe("Word 下载", () => {
     expect(mockedCreateDocx).toHaveBeenCalledWith(expect.any(String), {
       isLinkBreak: false,
     });
+  });
+
+  it("可将回答导出为 HTML", async () => {
+    appendMessage(
+      '<script>alert("unsafe")</script><h2 onclick="alert(1)">回答标题</h2>',
+    );
+
+    await saveChatResult("assistant-message", "html", "回答");
+
+    const [blob, fileName] = mockedSaveAs.mock.calls[0];
+    expect(fileName).toBe("回答.html");
+    expect(blob).toBeInstanceOf(Blob);
+    const html = await (blob as Blob).text();
+    expect(html).toContain("@page { size: A4 portrait");
+    expect(html).toContain("回答标题");
+    expect(html).not.toContain("<script");
+    expect(html).not.toContain("onclick=");
+  });
+
+  it("导出 HTML 时保留代码框样式并隐藏无效工具按钮", async () => {
+    appendMessage(`
+      <markdown-code-block class="markdown-code-block">
+        <div class="markdown-code-toolbar">
+          <span class="markdown-code-language">python</span>
+          <div class="markdown-code-actions"><button>copy</button></div>
+        </div>
+        <pre><code>import pandas as pd</code></pre>
+      </markdown-code-block>
+    `);
+
+    await saveChatResult("assistant-message", "html", "代码回答");
+
+    const [blob] = mockedSaveAs.mock.calls[0];
+    const html = await (blob as Blob).text();
+    expect(html).toContain('<body class="markdown-body">');
+    expect(html).toContain(".markdown-code-block {");
+    expect(html).toContain(".markdown-code-toolbar {");
+    expect(html).not.toContain('class="markdown-code-actions"');
+    expect(html).not.toContain("<button>copy</button>");
+    expect(html).toContain("import pandas as pd");
+  });
+
+  it("可将回答导出为 XLSX", async () => {
+    appendMessage("<h2>回答标题</h2><table><tr><td>内容</td></tr></table>");
+
+    await saveChatResult("assistant-message", "xlsx", "回答");
+
+    expect(mockedCreateXlsx).toHaveBeenCalledWith(
+      expect.stringContaining("回答标题"),
+    );
+    expect(mockedSaveAs).toHaveBeenCalledWith(expect.any(Blob), "回答.xlsx");
   });
 
   it("Word 生成失败时提示错误且不触发下载", async () => {

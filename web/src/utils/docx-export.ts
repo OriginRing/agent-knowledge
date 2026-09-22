@@ -289,10 +289,21 @@ async function imageRun(element: HTMLImageElement) {
 async function inlineChildren(
   node: Node,
   inheritedStyle: TextStyle = {},
+  preserveWhitespace = false,
 ): Promise<ParagraphChild[]> {
   if (node.nodeType === Node.TEXT_NODE) {
-    const text = (node.textContent || "").replace(/\s+/g, " ");
-    return text ? [textRun(text, inheritedStyle)] : [];
+    const text = node.textContent || "";
+    if (!preserveWhitespace) {
+      const normalizedText = text.replace(/\s+/g, " ");
+      return normalizedText ? [textRun(normalizedText, inheritedStyle)] : [];
+    }
+
+    return text.split(/\r\n?|\n/).flatMap((line, index, lines) => {
+      const runs: ParagraphChild[] = [];
+      if (line) runs.push(textRun(line, inheritedStyle));
+      if (index < lines.length - 1) runs.push(new TextRun({ break: 1 }));
+      return runs;
+    });
   }
   if (!(node instanceof HTMLElement)) return [];
 
@@ -310,9 +321,12 @@ async function inlineChildren(
   }
 
   const style = mergeTextStyle(inheritedStyle, node);
+  const shouldPreserveWhitespace = preserveWhitespace || tag === "pre";
   const children = (
     await Promise.all(
-      Array.from(node.childNodes).map((child) => inlineChildren(child, style)),
+      Array.from(node.childNodes).map((child) =>
+        inlineChildren(child, style, shouldPreserveWhitespace),
+      ),
     )
   ).flat();
   if (tag === "a" && node.getAttribute("href")) {
@@ -367,7 +381,9 @@ async function paragraphFromElement(
   );
   const children = (
     await Promise.all(
-      inlineNodes.map((node) => inlineChildren(node, context?.textStyle)),
+      inlineNodes.map((node) =>
+        inlineChildren(node, context?.textStyle, tag === "pre"),
+      ),
     )
   ).flat();
 
@@ -476,6 +492,12 @@ async function blockElement(
   context: ConversionContext,
 ): Promise<FileChild[]> {
   const tag = element.tagName.toLowerCase();
+  if (tag === "markdown-code-block") {
+    const codeElement = element.querySelector("pre");
+    return codeElement
+      ? [await paragraphFromElement(codeElement, { context })]
+      : blockChildren(element, context);
+  }
   if (tag === "ul" || tag === "ol") return listChildren(element);
   if (tag === "table")
     return [await tableFromElement(element as HTMLTableElement, context)];
@@ -519,6 +541,7 @@ async function blockChildren(
           "h5",
           "h6",
           "main",
+          "markdown-code-block",
           "ol",
           "p",
           "pre",

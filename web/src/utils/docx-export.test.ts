@@ -80,6 +80,26 @@ describe("标准 DOCX 导出", () => {
     expect(xml).toContain("加粗高亮");
   });
 
+  it("保留代码块中的换行和缩进", async () => {
+    const { xml } = await documentFiles(`
+      <markdown-code-block class="markdown-code-block">
+        <div class="markdown-code-toolbar">
+          <span class="markdown-code-language">python</span>
+          <div class="markdown-code-actions"><button>复制</button></div>
+        </div>
+        <pre><code>def hello():\n    print('hello')\n    return True</code></pre>
+      </markdown-code-block>
+    `);
+
+    expect(xml?.match(/<w:br\/>/g)).toHaveLength(2);
+    expect(xml).not.toContain("复制");
+    expect(xml).not.toContain("python");
+    expect(xml).toContain("def hello():");
+    expect(xml).toContain("    print(&apos;hello&apos;)");
+    expect(xml).toContain("    return True");
+    expect(xml).toContain('xml:space="preserve"');
+  });
+
   it("isLinkBreak 只控制表头是否禁止换行", async () => {
     const html =
       "<table><tr><th>很长的表头</th></tr><tr><td>正文</td></tr></table>";

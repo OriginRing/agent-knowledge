@@ -10,7 +10,7 @@ import { useChatStore } from "@view/stores/chat";
 
 const fileMocks = vi.hoisted(() => ({
   prepareDocxContent: vi.fn(),
-  saveDocx: vi.fn(),
+  saveChatResult: vi.fn(),
 }));
 
 vi.mock("ant-design-x-vue", () => ({
@@ -53,7 +53,10 @@ vi.mock("@view/utils/typewriter", () => ({
   renderMarkdown: (content: string) => content,
   renderStreamingMarkdown: (content: string) => content,
 }));
-vi.mock("@view/utils/save-file", () => fileMocks);
+vi.mock("@view/utils/save-file", () => ({
+  prepareDocxContent: fileMocks.prepareDocxContent,
+  saveChatResult: fileMocks.saveChatResult,
+}));
 
 describe("AgentChat selection actions", () => {
   let nextFrameId: number;
@@ -62,6 +65,7 @@ describe("AgentChat selection actions", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     setActivePinia(createPinia());
+    vi.clearAllMocks();
     fileMocks.prepareDocxContent.mockResolvedValue({
       html: '<h2>可编辑回答</h2><img src="data:image/png;base64,chart" alt="GPT-Vis 图表">',
       failedChartCount: 0,
@@ -191,5 +195,49 @@ describe("AgentChat selection actions", () => {
         '<h2>可编辑回答</h2><img src="data:image/png;base64,chart" alt="GPT-Vis 图表">',
     });
     wrapper.unmount();
+  });
+
+  it("下载回答时展示 DOCX、HTML 和 XLSX 三种格式", async () => {
+    const wrapper = mount(AgentChat, {
+      global: {
+        stubs: {
+          "a-button": { template: "<button><slot /></button>" },
+          "a-dropdown": {
+            template: '<div><slot /><slot name="overlay" /></div>',
+          },
+          "a-flex": { template: "<div><slot /></div>" },
+          "a-menu": { template: "<div><slot /></div>" },
+          "a-menu-item": { template: "<button><slot /></button>" },
+          "a-typography": { template: "<div><slot /></div>" },
+          ChatInput: true,
+          ChatMessageAnchors: true,
+        },
+      },
+    });
+    const chat = useChatStore();
+    chat.setAgentDetail({ supportDownload: true } as never);
+    chat.setAgentHistoryDetail([
+      {
+        key: "assistant-download",
+        role: "assistant",
+        content: "可下载回答",
+        complete: true,
+      },
+    ]);
+    await nextTick();
+
+    expect(wrapper.find('[aria-label="下载回答"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("DOCX 文档");
+    expect(wrapper.text()).toContain("HTML 网页");
+    expect(wrapper.text()).toContain("XLSX 表格");
+
+    const xlsxOption = wrapper
+      .findAll("button")
+      .find((button) => button.text() === "XLSX 表格");
+    await xlsxOption?.trigger("click");
+    expect(fileMocks.saveChatResult).toHaveBeenCalledWith(
+      "chat-message-assistant-download",
+      "xlsx",
+    );
   });
 });

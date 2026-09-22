@@ -2,13 +2,21 @@ import { snapdom } from "@zumer/snapdom";
 import { message } from "ant-design-vue";
 import { saveAs } from "file-saver";
 
-import { createStandardDocxBlob } from "./docx-export";
-
 const A4_MAX_WIDTH = 620;
 const CHART_EXPORT_ERROR_TEXT = "图表导出失败";
-export interface DocxExportContent {
+
+export const DOWNLOAD_FORMATS = ["docx", "html", "xlsx"] as const;
+export type DownloadFormat = (typeof DOWNLOAD_FORMATS)[number];
+
+export interface PreparedExportContent {
   html: string;
   failedChartCount: number;
+}
+
+export type DocxExportContent = PreparedExportContent;
+
+export function isDownloadFormat(value: unknown): value is DownloadFormat {
+  return DOWNLOAD_FORMATS.includes(value as DownloadFormat);
 }
 
 function applyImageSizing(element: HTMLElement) {
@@ -27,9 +35,7 @@ async function captureChart(chart: Element): Promise<string> {
   const chartContainer = chart.querySelector(
     ".gpt-vis-wrapper-chart-container",
   );
-  if (!chartContainer) {
-    throw new Error("未找到 GPT-Vis 图表容器");
-  }
+  if (!chartContainer) throw new Error("未找到 GPT-Vis 图表容器");
 
   const snapshot = await snapdom(chartContainer, { scale: 2 });
   const image = await snapshot.toPng();
@@ -39,9 +45,9 @@ async function captureChart(chart: Element): Promise<string> {
   return image.src;
 }
 
-export async function prepareDocxContent(
+export async function prepareExportContent(
   sourceElement: HTMLElement,
-): Promise<DocxExportContent> {
+): Promise<PreparedExportContent> {
   const clonedElement = sourceElement.cloneNode(true) as HTMLElement;
   const sourceCharts = Array.from(sourceElement.querySelectorAll("gpt-vis"));
   const clonedCharts = Array.from(clonedElement.querySelectorAll("gpt-vis"));
@@ -69,32 +75,64 @@ export async function prepareDocxContent(
   });
 
   applyImageSizing(clonedElement);
-  return {
-    html: clonedElement.innerHTML,
-    failedChartCount,
-  };
+  return { html: clonedElement.innerHTML, failedChartCount };
 }
 
-async function exportDocx(
-  element: HTMLElement,
-  fileName: string,
+export const prepareDocxContent = prepareExportContent;
+
+async function createExportBlob(
+  html: string,
+  format: DownloadFormat,
   isLinkBreak: boolean,
 ) {
+  if (format === "docx") {
+    const { createStandardDocxBlob } = await import("./docx-export");
+    return createStandardDocxBlob(html, { isLinkBreak });
+  }
+  if (format === "xlsx") {
+    const { createStandardXlsxBlob } = await import("./xlsx-export");
+    return createStandardXlsxBlob(html);
+  }
+
+  const { createHtmlBlob } = await import("./save-html");
+  return createHtmlBlob(html);
+}
+
+async function exportElement(
+  element: HTMLElement,
+  format: DownloadFormat,
+  fileName: string,
+  isLinkBreak = true,
+  warningTarget = "导出文件",
+) {
   try {
-    const exportContent = await prepareDocxContent(element);
-    const blob = await createStandardDocxBlob(exportContent.html, {
+    const exportContent = await prepareExportContent(element);
+    const blob = await createExportBlob(
+      exportContent.html,
+      format,
       isLinkBreak,
-    });
+    );
     saveAs(blob, fileName);
     if (exportContent.failedChartCount > 0) {
       message.warning(
-        `${exportContent.failedChartCount} 个图表未能导出，已在 Word 中标注`,
+        `${exportContent.failedChartCount} 个图表未能导出，已在${warningTarget}中标注`,
       );
     }
-  } catch (err) {
-    console.error("导出Word失败:", err);
-    message.error("导出 Word 失败，请稍后重试");
+  } catch (error) {
+    const label = format === "docx" ? "Word" : format.toUpperCase();
+    console.error(`导出 ${label} 失败:`, error);
+    message.error(`导出 ${label} 失败，请稍后重试`);
   }
+}
+
+export async function saveChatResult(
+  elementId: string,
+  format: DownloadFormat,
+  baseFileName = `智能体回答-${Date.now()}`,
+) {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+  await exportElement(element, format, `${baseFileName}.${format}`);
 }
 
 export async function saveDocx(
@@ -104,7 +142,7 @@ export async function saveDocx(
 ) {
   const element = document.getElementById(elementId);
   if (!element) return;
-  await exportDocx(element, fileName, isLinkBreak);
+  await exportElement(element, "docx", fileName, isLinkBreak, " Word ");
 }
 
 export async function saveHtmlAsDocx(
@@ -114,5 +152,5 @@ export async function saveHtmlAsDocx(
 ) {
   const element = document.createElement("div");
   element.innerHTML = html;
-  await exportDocx(element, fileName, isLinkBreak);
+  await exportElement(element, "docx", fileName, isLinkBreak, " Word ");
 }

@@ -133,6 +133,16 @@
                         <a-flex justify="center">上传图片</a-flex>
                       </a-upload>
                     </a-menu-item>
+                    <a-menu-item v-if="isMobileWidth">
+                      <a-upload
+                        :show-upload-list="false"
+                        accept="image/*"
+                        capture="environment"
+                        :before-upload="handleImageBeforeUpload"
+                      >
+                        <a-flex justify="center">拍照</a-flex>
+                      </a-upload>
+                    </a-menu-item>
                     <a-menu-item>
                       <a-upload
                         ref="fileUploadRef"
@@ -181,7 +191,16 @@
   </div>
 </template>
 <script lang="ts" setup>
-import { computed, nextTick, provide, ref, shallowRef, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  provide,
+  ref,
+  shallowRef,
+  watch,
+} from "vue";
 import {
   PaperClipOutlined,
   CloseCircleOutlined,
@@ -216,6 +235,23 @@ const chatInput = ref<string>("");
 const quoteContent = ref("");
 const chatService = useChatStore();
 const thinking = ref(false);
+const isMobileWidth = ref(false);
+let mobileWidthQuery: MediaQueryList | undefined;
+
+const updateMobileWidth = () => {
+  isMobileWidth.value = Boolean(mobileWidthQuery?.matches);
+};
+
+onMounted(() => {
+  mobileWidthQuery = window.matchMedia("(max-width: 768px)");
+  updateMobileWidth();
+  mobileWidthQuery.addEventListener("change", updateMobileWidth);
+});
+
+onBeforeUnmount(() => {
+  mobileWidthQuery?.removeEventListener("change", updateMobileWidth);
+});
+
 const uploadFiles = ref<
   Array<{
     file: File;

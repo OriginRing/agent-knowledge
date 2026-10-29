@@ -30,14 +30,26 @@ describe("标准 DOCX 导出", () => {
     expect(zip.file("word/afchunk.mht")).toBeNull();
   });
 
-  it("生成原生列表和表格", async () => {
+  it("无序列表保留内容但不生成项目符号，有序列表保留编号", async () => {
+    const unordered = await documentFiles(
+      "<h1>专注力报告</h1><p>引言</p><ul><li>信息过载</li><li>即时反馈</li></ul>",
+    );
+    const ordered = await documentFiles(
+      "<ol><li>第一项</li><li>第二项</li></ol>",
+    );
+
+    expect(unordered.xml).toContain("专注力报告");
+    expect(unordered.xml).toContain("信息过载");
+    expect(unordered.xml).toContain("即时反馈");
+    expect(unordered.xml).not.toContain("<w:numPr>");
+    expect(ordered.xml).toContain("<w:numPr>");
+  });
+
+  it("生成原生表格", async () => {
     const { xml } = await documentFiles(`
-      <ol><li>第一项</li><li>第二项</li></ol>
       <table><tr><th>姓名</th><th>金额</th></tr><tr><td>小王</td><td>100</td></tr></table>
     `);
 
-    expect(xml).toContain("第一项");
-    expect(xml).toContain("第二项");
     expect(xml).toContain("<w:tbl>");
     expect(xml).toContain("姓名");
     expect(xml).toContain("100");
@@ -62,12 +74,35 @@ describe("标准 DOCX 导出", () => {
     expect(styles).toContain('w:eastAsia="仿宋_GB2312"');
     expect(styles).toContain('w:eastAsia="黑体"');
     expect(styles).toContain('w:sz w:val="44"');
+    expect(xml).toContain("报告标题");
+    expect(xml).toContain('w:pStyle w:val="Heading1"');
     expect(xml).toContain('w:jc w:val="center"');
     expect(xml).toContain('w:firstLine="560"');
     expect(xml).toContain('w:after="240"');
     expect(xml).toContain('w:line="560"');
     expect(xml).toContain('w:lineRule="exact"');
     expect(xml).not.toContain("<w:pgBorders>");
+  });
+
+  it("二级至六级标题保留标题级别并使用黑色标题样式", async () => {
+    const { xml, styles } = await documentFiles(
+      Array.from({ length: 5 }, (_, index) => {
+        const level = index + 2;
+        return `<h${level}>${level}级标题</h${level}>`;
+      }).join(""),
+    );
+
+    for (let level = 2; level <= 6; level += 1) {
+      expect(xml).toContain(`${level}级标题`);
+      expect(xml).toContain(`w:pStyle w:val="Heading${level}"`);
+      const style = styles?.match(
+        new RegExp(
+          `<w:style[^>]*w:styleId="Heading${level}"[\\s\\S]*?<\\/w:style>`,
+        ),
+      )?.[0];
+      expect(style).toContain('w:color w:val="000000"');
+      expect(style).toContain('w:eastAsia="黑体"');
+    }
   });
 
   it("保留文字背景色", async () => {

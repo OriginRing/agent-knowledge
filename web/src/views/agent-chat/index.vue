@@ -184,9 +184,23 @@
             top: `${selectionActions.top}px`,
           }"
         >
-          <a-button type="text" @click="quoteSelection">
+          <a-button
+            type="text"
+            aria-label="引用选中内容"
+            @mousedown.prevent
+            @click="quoteSelection"
+          >
             <RollbackOutlined />
             引用
+          </a-button>
+          <a-button
+            type="text"
+            aria-label="复制选中内容"
+            @mousedown.prevent
+            @click="copySelection"
+          >
+            <CopyOutlined />
+            复制
           </a-button>
         </div>
       </div>
@@ -370,9 +384,18 @@ const quoteSelection = () => {
   cancelSelectionActions();
 };
 
+const copySelection = () => {
+  if (!selectionActions.content) return;
+  void copyToClipboard(selectionActions.content);
+  cancelSelectionActions();
+};
+
+const handleDocumentSelectionChange = () => updateSelectionActions();
+
 const handleChatScroll = (event: Event) => {
   updateActiveAnchor(event);
-  cancelSelectionActions();
+  // 滚动不清空选区，引用/复制操作跟随选中内容重算位置
+  updateSelectionActions();
   const container = event.currentTarget as HTMLElement;
   const isAtBottom = isChatScrolledToBottom(container);
 
@@ -406,6 +429,10 @@ const updateActiveAnchor = (event: Event) => {
 onBeforeUnmount(() => {
   window.cancelAnimationFrame(anchorFrame);
   window.cancelAnimationFrame(selectionFrame);
+  document.removeEventListener(
+    "selectionchange",
+    handleDocumentSelectionChange,
+  );
 });
 
 const roleConfig = reactive({
@@ -690,6 +717,7 @@ watch(
 
 onMounted(() => {
   sessionId.value = createChatSession();
+  document.addEventListener("selectionchange", handleDocumentSelectionChange);
 });
 </script>
 <style scoped lang="less">

@@ -13,6 +13,10 @@ const fileMocks = vi.hoisted(() => ({
   saveChatResult: vi.fn(),
 }));
 
+const copyMocks = vi.hoisted(() => ({
+  copyToClipboard: vi.fn(),
+}));
+
 vi.mock("ant-design-x-vue", () => ({
   BubbleList: {
     props: ["items"],
@@ -57,6 +61,9 @@ vi.mock("@view/utils/save-file", () => ({
   prepareDocxContent: fileMocks.prepareDocxContent,
   saveChatResult: fileMocks.saveChatResult,
 }));
+vi.mock("@view/utils/copy", () => ({
+  copyToClipboard: copyMocks.copyToClipboard,
+}));
 
 describe("AgentChat selection actions", () => {
   let nextFrameId: number;
@@ -70,6 +77,7 @@ describe("AgentChat selection actions", () => {
       html: '<h2>可编辑回答</h2><img src="data:image/png;base64,chart" alt="GPT-Vis 图表">',
       failedChartCount: 0,
     });
+    copyMocks.copyToClipboard.mockResolvedValue(true);
     nextFrameId = 0;
     frameCallbacks = new Map();
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
@@ -95,7 +103,7 @@ describe("AgentChat selection actions", () => {
     }
   };
 
-  it("滚动时取消文字引用操作", async () => {
+  it("滚动时保留文字选区，引用操作跟随选中内容", async () => {
     const wrapper = mount(AgentChat, {
       global: {
         stubs: {
@@ -129,9 +137,54 @@ describe("AgentChat selection actions", () => {
       "top: 228px",
     );
 
+    // 滚动不再清空选区，引用/复制操作跟随选中内容继续展示
     await wrapper.get(".bubble-list-stub").trigger("scroll");
     runAllFrames();
     await nextTick();
+    expect(wrapper.find(".selection-actions").exists()).toBe(true);
+    expect(wrapper.get(".selection-actions").attributes("style")).toContain(
+      "top: 228px",
+    );
+    expect(window.getSelection()?.rangeCount).toBe(1);
+  });
+
+  it("点击复制按钮复制选中内容并隐藏操作", async () => {
+    const wrapper = mount(AgentChat, {
+      global: {
+        stubs: {
+          ChatInput: true,
+          ChatMessageAnchors: true,
+        },
+      },
+    });
+    const content = wrapper.get(".chat-content").element;
+    const range = document.createRange();
+    range.selectNodeContents(content);
+    Object.defineProperty(range, "getBoundingClientRect", {
+      value: () => ({
+        bottom: 260,
+        height: 20,
+        left: 100,
+        right: 180,
+        top: 240,
+        width: 80,
+        x: 100,
+        y: 240,
+        toJSON: () => ({}),
+      }),
+    });
+    window.getSelection()?.addRange(range);
+
+    await wrapper.get(".bubble-list-stub").trigger("mouseup");
+    runAllFrames();
+    await nextTick();
+    expect(wrapper.find('[aria-label="复制选中内容"]').exists()).toBe(true);
+
+    await wrapper.get('[aria-label="复制选中内容"]').trigger("click");
+    await nextTick();
+    expect(copyMocks.copyToClipboard).toHaveBeenCalledWith(
+      content.textContent?.trim(),
+    );
     expect(wrapper.find(".selection-actions").exists()).toBe(false);
     expect(window.getSelection()?.rangeCount).toBe(0);
   });

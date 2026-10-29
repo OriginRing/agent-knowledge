@@ -351,7 +351,6 @@ function paragraphAlignment(element: HTMLElement) {
 async function paragraphFromElement(
   element: HTMLElement,
   options: {
-    bulletLevel?: number;
     orderedLevel?: number;
     context?: ConversionContext;
   } = {},
@@ -359,6 +358,7 @@ async function paragraphFromElement(
   const tag = element.tagName.toLowerCase();
   const context = options.context;
   const isHeadingOne = tag === "h1";
+  const isSecondaryHeading = /^h[2-6]$/.test(tag);
   const isPageNumber = element.classList.contains("page-number");
   const heading =
     tag === "h1"
@@ -395,10 +395,6 @@ async function paragraphFromElement(
       : isPageNumber || context?.inTableCell
         ? AlignmentType.CENTER
         : paragraphAlignment(element) || AlignmentType.LEFT,
-    bullet:
-      options.bulletLevel === undefined
-        ? undefined
-        : { level: options.bulletLevel },
     numbering:
       options.orderedLevel === undefined
         ? undefined
@@ -413,7 +409,7 @@ async function paragraphFromElement(
       tag === "pre" ? { type: ShadingType.CLEAR, fill: "F5F5F5" } : undefined,
     spacing: {
       before: isPageNumber ? 600 : undefined,
-      after: isHeadingOne ? 400 : tag === "p" ? 240 : 0,
+      after: isHeadingOne ? 400 : isSecondaryHeading || tag === "p" ? 240 : 0,
       line: 560,
       lineRule: LineRuleType.EXACT,
     },
@@ -431,7 +427,6 @@ async function listChildren(
     if (item.tagName.toLowerCase() !== "li") continue;
     output.push(
       await paragraphFromElement(item as HTMLElement, {
-        bulletLevel: ordered ? undefined : Math.min(level, 8),
         orderedLevel: ordered ? Math.min(level, 8) : undefined,
       }),
     );
@@ -589,6 +584,21 @@ export async function createStandardDocxBlob(
               lineRule: LineRuleType.EXACT,
             },
           },
+        },
+        heading2: {
+          run: { font: HEADING_FONT, size: 36, bold: false, color: "000000" },
+        },
+        heading3: {
+          run: { font: HEADING_FONT, size: 32, bold: false, color: "000000" },
+        },
+        heading4: {
+          run: { font: HEADING_FONT, size: 30, bold: false, color: "000000" },
+        },
+        heading5: {
+          run: { font: HEADING_FONT, size: 28, bold: false, color: "000000" },
+        },
+        heading6: {
+          run: { font: HEADING_FONT, size: 26, bold: false, color: "000000" },
         },
       },
     },

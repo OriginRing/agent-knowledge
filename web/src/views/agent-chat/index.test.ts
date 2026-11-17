@@ -2,7 +2,7 @@
 
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { nextTick } from "vue";
+import { nextTick, reactive, ref } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import AgentChat from "./index.vue";
@@ -17,22 +17,28 @@ const copyMocks = vi.hoisted(() => ({
   copyToClipboard: vi.fn(),
 }));
 
+let bubbleDom = reactive({ container: true, content: true });
+
 vi.mock("ant-design-x-vue", () => ({
   BubbleList: {
     props: ["items"],
-    methods: { scrollTo() {} },
+    setup(_props: unknown, { expose }: { expose: (value: object) => void }) {
+      const scrollBox = ref<HTMLDivElement | null>(null);
+      expose({ scrollBoxNativeElement: scrollBox, scrollTo() {} });
+      return { bubbleDom, scrollBox };
+    },
     template: `
       <div class="bubble-list-stub">
-        <div
-          v-for="item in items"
-          :key="item.key"
-          :class="item.rootClassName"
-        >
-          <slot name="header" :item="item" />
-          <div class="ant-bubble-content">
-            <slot name="message" :item="item" />
+        <div v-if="bubbleDom.container" ref="scrollBox" class="scroll-box">
+          <div v-if="bubbleDom.content" class="ant-bubble-list-scroll-content">
+            <div v-for="item in items" :key="item.key" :class="item.rootClassName">
+              <slot name="header" :item="item" />
+              <div class="ant-bubble-content">
+                <slot name="content" :item="item" />
+              </div>
+              <slot name="footer" :item="item" />
+            </div>
           </div>
-          <slot name="footer" :item="item" />
         </div>
       </div>
     `,
@@ -71,6 +77,7 @@ describe("AgentChat selection actions", () => {
 
   beforeEach(() => {
     document.body.innerHTML = "";
+    bubbleDom = reactive({ container: true, content: true });
     setActivePinia(createPinia());
     vi.clearAllMocks();
     fileMocks.prepareDocxContent.mockResolvedValue({
@@ -102,6 +109,58 @@ describe("AgentChat selection actions", () => {
       frames.forEach((callback) => callback(0));
     }
   };
+
+  it("滚动容器和消息内容延迟挂载时接上跟随，移除容器时断开监听", async () => {
+    Object.assign(bubbleDom, { container: false, content: false });
+    const observe = vi.fn();
+    const unobserve = vi.fn();
+    const disconnect = vi.fn();
+    let resize: (() => void) | undefined;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe = observe;
+        unobserve = unobserve;
+        disconnect = disconnect;
+
+        constructor(callback: () => void) {
+          resize = callback;
+        }
+      },
+    );
+    const wrapper = mount(AgentChat);
+    expect(observe).not.toHaveBeenCalled();
+
+    bubbleDom.container = true;
+    await nextTick();
+    const container = wrapper.get(".scroll-box").element;
+    expect(observe).toHaveBeenCalledExactlyOnceWith(container);
+
+    bubbleDom.content = true;
+    await nextTick();
+    const content = wrapper.get(".ant-bubble-list-scroll-content").element;
+    await vi.waitFor(() => expect(observe).toHaveBeenCalledWith(content));
+    Object.defineProperty(container, "scrollHeight", { value: 600 });
+    resize?.();
+    expect(container.scrollTop).toBe(600);
+
+    bubbleDom.content = false;
+    await nextTick();
+    await vi.waitFor(() => expect(unobserve).toHaveBeenCalledWith(content));
+
+    bubbleDom.container = false;
+    await nextTick();
+    expect(disconnect).toHaveBeenCalledTimes(1);
+
+    Object.assign(bubbleDom, { container: true, content: true });
+    await nextTick();
+    expect(observe).toHaveBeenCalledWith(wrapper.get(".scroll-box").element);
+    expect(observe).toHaveBeenCalledWith(
+      wrapper.get(".ant-bubble-list-scroll-content").element,
+    );
+    wrapper.unmount();
+    expect(disconnect).toHaveBeenCalledTimes(2);
+  });
 
   it("滚动时保留文字选区，引用操作跟随选中内容", async () => {
     const wrapper = mount(AgentChat, {

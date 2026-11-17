@@ -31,7 +31,7 @@
     "@tiptap/vue-3": "^3.31.3",
     "@zumer/snapdom": "^1.9.14",
     "ant-design-vue": "^4.2.6",
-    "ant-design-x-vue": "^1.6.0",
+    "ant-design-x-vue": "^2.0.0",
     "axios": "^1.16.1",
     "dayjs": "^1.11.21",
     "docx": "^9.7.1",

@@ -24,7 +24,7 @@
       <div class="chat">
         <bubble-list
           ref="bubbleListRef"
-          :auto-scroll="followBottom"
+          :auto-scroll="false"
           :items="answer"
           :roles="roleConfig"
           :message-render="renderMarkdown"
@@ -65,7 +65,7 @@
               :message-status="item.status"
             />
           </template>
-          <template #message="{ item }">
+          <template #content="{ item }">
             <p
               v-if="item.role !== 'assistant' && item.content"
               :id="
@@ -289,9 +289,9 @@ const answer = ref<AgentChat[]>([system]);
 const sessionId = ref<string>("");
 const chatService = useChatStore();
 const bubbleListRef = ref<{
+  scrollBoxNativeElement: HTMLDivElement | null;
   scrollTo: (options: {
     key?: string;
-    offset?: number;
     behavior?: "auto" | "smooth";
     block?: "start" | "center" | "end" | "nearest";
   }) => void;
@@ -304,11 +304,13 @@ const selectionActions = reactive({
   top: 0,
 });
 const activeAnchorKey = ref<string>("");
-const followBottom = ref(true);
+let followBottom = true;
 const showScrollBottom = ref(false);
 const editingAnswerKey = ref("");
 let anchorFrame = 0;
 let selectionFrame = 0;
+let chatResizeObserver: ResizeObserver | undefined;
+let measuredScrollRange = 0;
 
 const questionMessages = computed(() =>
   answer.value.filter((item) => item.role === "user"),
@@ -316,7 +318,7 @@ const questionMessages = computed(() =>
 
 const scrollToMessage = (key: string) => {
   activeAnchorKey.value = key;
-  followBottom.value = false;
+  followBottom = false;
   showScrollBottom.value = true;
   const reduceMotion = window.matchMedia?.(
     "(prefers-reduced-motion: reduce)",
@@ -329,12 +331,10 @@ const scrollToMessage = (key: string) => {
 };
 
 const scrollToBottom = () => {
-  followBottom.value = true;
+  followBottom = true;
   showScrollBottom.value = false;
-  bubbleListRef.value?.scrollTo({
-    offset: Number.MAX_SAFE_INTEGER,
-    behavior: "auto",
-  });
+  const container = bubbleListRef.value?.scrollBoxNativeElement;
+  if (container) container.scrollTop = container.scrollHeight;
 };
 
 const hideSelectionActions = () => {
@@ -397,9 +397,19 @@ const handleChatScroll = (event: Event) => {
   // 滚动不清空选区，引用/复制操作跟随选中内容重算位置
   updateSelectionActions();
   const container = event.currentTarget as HTMLElement;
+  const scrollRange = container.scrollHeight - container.clientHeight;
+  // 内容重新布局也可能触发 scroll，交给 ResizeObserver 维持原有的跟随状态。
+  if (
+    chatResizeObserver &&
+    followBottom &&
+    scrollRange !== measuredScrollRange &&
+    container.scrollTop >= Math.min(scrollRange, measuredScrollRange) - 1
+  ) {
+    return;
+  }
   const isAtBottom = isChatScrolledToBottom(container);
 
-  followBottom.value = isAtBottom;
+  followBottom = isAtBottom;
   showScrollBottom.value = !isAtBottom;
 };
 
@@ -690,7 +700,7 @@ watch(
     if (newVal !== oldVal) {
       answer.value = [system];
       sessionId.value = newVal;
-      followBottom.value = true;
+      followBottom = true;
       showScrollBottom.value = false;
     }
   },
@@ -699,8 +709,6 @@ watch(
 watchEffect(() => {
   if (chatService.getAgentHistoryDetail.length) {
     answer.value = rehydrateHistoryMessages(chatService.getAgentHistoryDetail);
-    followBottom.value = true;
-    showScrollBottom.value = false;
     nextTick(scrollToBottom);
   }
 });
@@ -719,6 +727,43 @@ onMounted(() => {
   sessionId.value = createChatSession();
   document.addEventListener("selectionchange", handleDocumentSelectionChange);
 });
+
+watch(
+  () => bubbleListRef.value?.scrollBoxNativeElement,
+  (container, _, onCleanup) => {
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (followBottom) scrollToBottom();
+      measuredScrollRange = container.scrollHeight - container.clientHeight;
+    });
+    chatResizeObserver = resizeObserver;
+    resizeObserver.observe(container);
+
+    let content: Element | null = null;
+    const observeContent = () => {
+      const nextContent = container.querySelector(
+        ":scope > .ant-bubble-list-scroll-content",
+      );
+      if (nextContent === content) return;
+      if (content) resizeObserver.unobserve(content);
+      content = nextContent;
+      if (content) resizeObserver.observe(content);
+    };
+    // 只跟踪内容容器本身的挂载和替换，流式更新由 ResizeObserver 处理。
+    const contentObserver = new MutationObserver(observeContent);
+    contentObserver.observe(container, { childList: true });
+    observeContent();
+
+    onCleanup(() => {
+      contentObserver.disconnect();
+      resizeObserver.disconnect();
+      chatResizeObserver = undefined;
+      measuredScrollRange = 0;
+    });
+  },
+  { flush: "post" },
+);
 </script>
 <style scoped lang="less">
 .agent-chat {

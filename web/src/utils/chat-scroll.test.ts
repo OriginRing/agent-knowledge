@@ -23,13 +23,13 @@ describe("isChatScrolledToBottom", () => {
     ).toBe(false);
   });
 
-  it("兼容反向滚动容器的负 scrollTop", () => {
+  it("顶部过度滚动产生负 scrollTop 时仍在顶部", () => {
     expect(
       isChatScrolledToBottom({
-        scrollHeight: 1000,
-        scrollTop: -600,
+        scrollHeight: 420,
+        scrollTop: -20,
         clientHeight: 400,
       } as HTMLElement),
-    ).toBe(true);
+    ).toBe(false);
   });
 });

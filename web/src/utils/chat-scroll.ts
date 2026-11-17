@@ -4,5 +4,4 @@ type ScrollMetrics = Pick<
 >;
 
 export const isChatScrolledToBottom = (metrics: ScrollMetrics, threshold = 1) =>
-  metrics.scrollHeight - Math.abs(metrics.scrollTop) - metrics.clientHeight <=
-  threshold;
+  metrics.scrollHeight - metrics.scrollTop - metrics.clientHeight <= threshold;

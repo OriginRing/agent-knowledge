@@ -5,6 +5,20 @@
     width: 100%;
   }
 
+  .markdown-table {
+    margin: 16px 0;
+
+    > table {
+      margin-bottom: 0;
+    }
+  }
+
+  .markdown-table-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 4px;
+  }
+
   .markdown-code-block {
     --markdown-code-surface: #f9fafb;
     --markdown-code-toolbar: #f3f4f6;
@@ -209,4 +223,41 @@ gpt-vis {
 
 body.echarts-fullscreen-open {
   overflow: hidden;
+}
+
+.markdown-table-fullscreen-button {
+  display: inline-flex;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 8px;
+  color: var(--gpt-vis-text, var(--app-text));
+  font: 12px var(--sans);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+
+  svg {
+    flex: none;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: var(--gpt-vis-bg-hover, var(--app-primary-soft));
+    transform: scale(1.02);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--app-primary);
+    outline-offset: 2px;
+  }
+
+  &:active {
+    background: var(--gpt-vis-bg-hover, var(--app-primary-soft));
+    transform: scale(0.98);
+  }
 }

@@ -2,6 +2,7 @@ import MarkdownIt from "markdown-it";
 import { GPTVis } from "@antv/gpt-vis";
 import { useThemeStore } from "@view/stores/theme";
 import { copyToClipboard } from "@view/utils/copy";
+import { registerMarkdownTable } from "@view/utils/markdown-table";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { RenderRule } from "markdown-it/dist/index.cjs";
@@ -196,6 +197,8 @@ const md = new MarkdownIt({
   linkify: true,
   typographer: true,
 });
+
+registerMarkdownTable(md);
 
 // ✅ 补全：保存默认 fence 规则并自定义拦截逻辑
 const defaultFence = md.renderer.rules.fence as RenderRule;

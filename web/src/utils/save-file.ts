@@ -49,6 +49,9 @@ export async function prepareExportContent(
   sourceElement: HTMLElement,
 ): Promise<PreparedExportContent> {
   const clonedElement = sourceElement.cloneNode(true) as HTMLElement;
+  clonedElement
+    .querySelectorAll("[data-markdown-table-actions]")
+    .forEach((actions) => actions.remove());
   const sourceCharts = Array.from(sourceElement.querySelectorAll("gpt-vis"));
   const clonedCharts = Array.from(clonedElement.querySelectorAll("gpt-vis"));
   const captures = await Promise.allSettled(sourceCharts.map(captureChart));

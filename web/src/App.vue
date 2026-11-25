@@ -9,6 +9,7 @@ import { useChatStore } from "@view/stores/chat";
 import Split from "@view/components/split.vue";
 import WorkspacePanel from "@view/views/workspace-panel/index.vue";
 import BackgroundPushModal from "@view/components/background-push-modal.vue";
+import MarkdownTablePreview from "@view/components/markdown-table-preview.vue";
 import type { CodeDraft } from "@view/stores/chat";
 import { createChatSession } from "@view/utils/random";
 import { useRoute, useRouter } from "vue-router";
@@ -134,6 +135,7 @@ watch(() => themeStore.isDark, applyTheme);
 </script>
 <template>
   <a-config-provider :theme="themeConfig">
+    <MarkdownTablePreview />
     <Login />
     <BackgroundPushModal />
     <a-config-provider :theme="workspaceThemeConfig">
